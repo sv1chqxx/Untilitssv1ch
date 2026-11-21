@@ -1,0 +1,10 @@
+{
+  "required": false,
+  "package": "dev.untilits.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "EntityMixin",
+    "NetworkMixin"
+  ],
+  "injectors": { "defaultRequire": 0 }
+}

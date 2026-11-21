@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "untilits",
+  "version": "${version}",
+  "name": "Untilits",
+  "description": "Liquid Glass меню на P: HUD, кровь, цифры урона. Скрытое меню: PlayerESP, NameTags, System HUD.",
+  "authors": ["Sam"],
+  "license": "All-Rights-Reserved",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.untilits.Untilits"] },
+  "mixins": ["untilits.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

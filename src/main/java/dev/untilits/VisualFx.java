@@ -15,7 +15,7 @@ import net.minecraft.component.DataComponentTypes;
 /** Ambience (время/погода), Cooldowns (зелье лечения), Kill Effects. */
 public final class VisualFx {
     public static final String[] WEATHER = {"Как есть", "Ясно", "Дождь", "Гроза"};
-    public static final String[] KILL = {"Молния", "Частицы", "Молния + частицы", "Астрал", "Разлом"}
+    public static final String[] KILL = {"Молния", "Частицы", "Молния + частицы", "Астрал", "Разлом"};
     public static final String[] TINT = {"Нет", "Cyber Neon", "Crimson Blood", "Golden Sunset", "Violet Aurora", "Emerald Acid", "Ice Diamond", "Realistic"};
     private static final int[] TINT_COL = {0, 0xFF2BD6, 0xB00020, 0xFFA040, 0x9B6BFF, 0x2BFF7A, 0x6BE6FF, 0x7F8FA0};
     private static int memTick;;

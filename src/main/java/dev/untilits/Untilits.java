@@ -15,6 +15,7 @@ import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public final class Untilits implements ClientModInitializer {
+    private static final KeyBinding.Category CATEGORY = KeyBinding.Category.create(Identifier.of("untilits", "main"));
     private static KeyBinding menuKey;
     private static KeyBinding freecamKey;
     private static boolean pDown;
@@ -25,11 +26,11 @@ public final class Untilits implements ClientModInitializer {
 
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.untilits.menu", GLFW.GLFW_KEY_P,
-                KeyBinding.Category.create(Identifier.of("untilits", "main"))));
+                CATEGORY));
 
         freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.untilits.freecam", GLFW.GLFW_KEY_V,
-                KeyBinding.Category.create(Identifier.of("untilits", "main"))));
+                CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             HudModules.tick(mc);

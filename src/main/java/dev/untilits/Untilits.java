@@ -41,6 +41,8 @@ public final class Untilits implements ClientModInitializer {
             Waypoints.tick(mc);
             Predictions.tick(mc);
             ArmorWatch.tick(mc);
+            TargetEsp.tick(mc);
+            VisualFx.tick(mc);
             if (mc.world == null) TrapTimer.clear();
             Freecam.tick(mc);
             while (freecamKey.wasPressed()) { if (mc.world != null) Freecam.set(!Freecam.active); }
@@ -68,10 +70,12 @@ public final class Untilits implements ClientModInitializer {
                     float tp = tickCounter.getTickProgress(false);
                     HudModules.render(ctx, mc);
                     PotionHud.render(ctx, mc);
+                    VisualFx.render(ctx, mc);
                     ArmorWatch.renderWarning(ctx, mc);
                     if (Projector.setup(mc, tp, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight())) {
                         DamageFx.render(ctx, mc, tp);
                         Predictions.render(ctx, mc, tp);
+                        TargetEsp.render(ctx, mc, tp);
                         Tracers.render(ctx, mc, tp);
                         ChestEsp.render(ctx, mc, tp);
                         Waypoints.render(ctx, mc);

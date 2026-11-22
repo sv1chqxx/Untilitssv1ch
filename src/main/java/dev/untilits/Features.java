@@ -34,6 +34,13 @@ public final class Features {
         reg("zeroAttack", "Без штрафа атаки", () -> Cfg.D.zeroAttack, v -> Cfg.D.zeroAttack = v);
         reg("zeroRaycast", "Raycast перед ударом", () -> Cfg.D.zeroRaycast, v -> Cfg.D.zeroRaycast = v);
         reg("zeroSnap", "SnapTap (SOCD)", () -> Cfg.D.zeroSnap, v -> Cfg.D.zeroSnap = v);
+        reg("tgtEsp", "Target ESP", () -> Cfg.D.tgtEsp, v -> Cfg.D.tgtEsp = v);
+        reg("tgtFlash", "Target ESP: вспышка при ударе", () -> Cfg.D.tgtFlash, v -> Cfg.D.tgtFlash = v);
+        reg("ambOn", "Ambience", () -> Cfg.D.ambOn, v -> Cfg.D.ambOn = v);
+        reg("ambTimeLock", "Ambience: фикс. время", () -> Cfg.D.ambTimeLock, v -> Cfg.D.ambTimeLock = v);
+        reg("fastExp", "FastEXP", () -> Cfg.D.fastExp, v -> Cfg.D.fastExp = v);
+        reg("cdOn", "Cooldowns", () -> Cfg.D.cdOn, v -> Cfg.D.cdOn = v);
+        reg("killFx", "Kill Effects", () -> Cfg.D.killFx, v -> Cfg.D.killFx = v);
         reg("potionHud", "Potion HUD", () -> Cfg.D.potionHud, v -> Cfg.D.potionHud = v);
         reg("predict", "Predictions", () -> Cfg.D.predict, v -> Cfg.D.predict = v);
         reg("predictFlying", "Предикт чужих снарядов", () -> Cfg.D.predictFlying, v -> Cfg.D.predictFlying = v);

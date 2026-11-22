@@ -2,6 +2,8 @@ package dev.untilits.ui;
 
 import dev.untilits.Cfg;
 import dev.untilits.Gfx;
+import dev.untilits.TargetEsp;
+import dev.untilits.VisualFx;
 import dev.untilits.Waypoints;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Click;
@@ -15,7 +17,7 @@ import java.util.List;
  * Внизу справа — еле заметный круг, ведущий к вводу кода.
  */
 public final class MainScreen extends UiScreen {
-    private static final String[] TABS = {"HUD", "Эффекты", "Цвета"};
+    private static final String[] TABS = {"HUD", "Эффекты", "Визуал", "Таргет ESP", "Цвета"};
     private static final String[] CORNERS = {"Лево-верх", "Право-верх", "Лево-низ", "Право-низ"};
     private static final int DW = 184;       // ширина боковой панели
     private static final int ROWS = 5;       // строк меток на экране
@@ -63,6 +65,27 @@ public final class MainScreen extends UiScreen {
                 items.add(new Section("Кровь"));
                 items.add(feat("blood", "Кровь при ударах"));
                 items.add(new Slider("Количество крови", 25, 300, 25, "%", () -> d.bloodAmount, v -> d.bloodAmount = v));
+            }
+            case 2 -> {
+                items.add(new Section("Ambience"));
+                items.add(feat("ambOn", "Включить Ambience"));
+                items.add(new Cycle("Погода", () -> VisualFx.WEATHER[d.ambWeather], () -> d.ambWeather = (d.ambWeather + 1) % 4));
+                items.add(feat("ambTimeLock", "Зафиксировать время"));
+                items.add(new Slider("Время суток", 0, 24000, 500, "", () -> d.ambTime, v -> d.ambTime = v));
+                items.add(new Section("Утилиты"));
+                items.add(feat("fastExp", "FastEXP (бутылки опыта без задержки)"));
+                items.add(feat("cdOn", "Cooldowns (зелье лечения)"));
+                items.add(feat("killFx", "Kill Effects"));
+                items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 3));
+            }
+            case 3 -> {
+                items.add(new Section("Эффект вокруг цели"));
+                items.add(feat("tgtEsp", "Target ESP"));
+                items.add(new Cycle("Режим", () -> TargetEsp.MODES[d.tgtMode], () -> d.tgtMode = (d.tgtMode + 1) % TargetEsp.MODES.length));
+                items.add(new Cycle("Скин маркера", () -> TargetEsp.SKINS[d.tgtSkin], () -> d.tgtSkin = (d.tgtSkin + 1) % TargetEsp.SKINS.length));
+                items.add(new Slider("Размер", 40, 250, 10, "%", () -> d.tgtSize, v -> d.tgtSize = v));
+                items.add(new Slider("Цвет (оттенок)", 0, 360, 10, "°", () -> d.tgtHue, v -> d.tgtHue = v));
+                items.add(feat("tgtFlash", "Красная вспышка при ударе"));
             }
             default -> {
                 int[] acc = {0x5B8CFF, 0x45D0FF, 0x37E0A8, 0xB78CFF, 0xFF7AC8, 0xFF6B6B, 0xFFB454, 0xF2F4FA};

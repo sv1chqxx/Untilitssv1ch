@@ -104,6 +104,16 @@ public final class Cfg {
         public boolean armorOver = false;
         public boolean armorWarn = true;
         public int armorWarnPct = 15;
+        public boolean tgtEsp;
+        public int tgtMode, tgtSkin, tgtSize = 100, tgtHue = 265;
+        public boolean tgtFlash = true;
+        public boolean ambOn, ambTimeLock;
+        public int ambTime = 6000, ambWeather = 1;
+        public boolean fastExp;
+        public boolean cdOn, cdHeal = true;
+        public int cdScale = 100;
+        public boolean killFx;
+        public int killMode;
 
         public String pass = "";
     }
@@ -133,6 +143,14 @@ public final class Cfg {
         D.bloodAmount = clamp(D.bloodAmount, 10, 300);
         D.espRange = clamp(D.espRange, 8, 512);
         D.tracerRange = clamp(D.tracerRange, 8, 512);
+        D.tgtMode = clamp(D.tgtMode, 0, 4);
+        D.tgtSkin = clamp(D.tgtSkin, 0, 3);
+        D.tgtSize = clamp(D.tgtSize, 40, 250);
+        D.tgtHue = clamp(D.tgtHue, 0, 360);
+        D.ambTime = clamp(D.ambTime, 0, 24000);
+        D.ambWeather = clamp(D.ambWeather, 0, 3);
+        D.cdScale = clamp(D.cdScale, 50, 200);
+        D.killMode = clamp(D.killMode, 0, 2);
         D.weakHp = clamp(D.weakHp, 1, 20);
         D.chestRange = clamp(D.chestRange, 8, 128);
         D.freecamSpeed = clamp(D.freecamSpeed, 1, 30);

@@ -54,6 +54,7 @@ public final class Untilits implements ClientModInitializer {
                     HudModules.render(ctx, mc);
                     if (Projector.setup(mc, tp, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight())) {
                         DamageFx.render(ctx, mc, tp);
+                        Tracers.render(ctx, mc, tp);
                         NameTags.render(ctx, mc, tp);
                     }
                     SysHud.render(ctx, mc);

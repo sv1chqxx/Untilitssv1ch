@@ -41,6 +41,12 @@ public final class Cfg {
         // скрытое меню
         public boolean esp = false;
         public int espRange = 128;
+        public boolean espMobs = false;
+        public boolean espItems = false;
+        public boolean tracers = false;
+        public int tracerRange = 128;
+        public boolean tracersMobs = false;
+        public boolean tracersItems = false;
         public boolean names = false;
         public int nameRange = 256;
         public boolean nameHp = true;
@@ -76,6 +82,7 @@ public final class Cfg {
         D.dmgScale = clamp(D.dmgScale, 50, 250);
         D.bloodAmount = clamp(D.bloodAmount, 10, 300);
         D.espRange = clamp(D.espRange, 8, 512);
+        D.tracerRange = clamp(D.tracerRange, 8, 512);
         D.nameRange = clamp(D.nameRange, 8, 512);
         D.hudCorner = clamp(D.hudCorner, 0, 3);
         if (D.pass == null) D.pass = "";

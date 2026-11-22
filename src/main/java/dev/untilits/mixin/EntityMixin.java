@@ -16,6 +16,6 @@ public abstract class EntityMixin {
 
     @Inject(method = "getTeamColorValue", at = @At("HEAD"), cancellable = true, require = 0)
     private void untilits$glowColor(CallbackInfoReturnable<Integer> cir) {
-        if (Esp.shouldGlow((Entity) (Object) this)) cir.setReturnValue(Esp.color());
+        if (Esp.shouldGlow((Entity) (Object) this)) cir.setReturnValue(Esp.color((Entity) (Object) this));
     }
 }

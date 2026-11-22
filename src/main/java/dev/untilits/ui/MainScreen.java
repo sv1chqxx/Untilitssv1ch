@@ -1,6 +1,7 @@
 package dev.untilits.ui;
 
 import dev.untilits.Cfg;
+import dev.untilits.CombatFx;
 import dev.untilits.Gfx;
 import dev.untilits.NoRender;
 import dev.untilits.TargetEsp;
@@ -25,6 +26,7 @@ public final class MainScreen extends UiScreen {
     private static int tab = 0;
     private static int optPage = 0;
     private static int visPage = 0;
+    private static final String[] VIS_PAGES = {"Ambience", "Утилиты", "Бой", "Вид"};
     private static final String[] OPT_PAGES = {"NoRender: интерфейс", "NoRender: мир", "Оптимизация", "Оптимизация 2"};
     private static boolean leftOpen, rightOpen;
     private int scrollL, scrollR;
@@ -78,7 +80,7 @@ public final class MainScreen extends UiScreen {
                 items.add(new Slider("Количество крови", 25, 300, 25, "%", () -> d.bloodAmount, v -> d.bloodAmount = v));
             }
             case 2 -> {
-                items.add(new Cycle("Раздел", () -> visPage == 0 ? "Ambience" : "Утилиты", () -> { visPage = 1 - visPage; build(); }));
+                items.add(new Cycle("Раздел", () -> VIS_PAGES[visPage], () -> { visPage = (visPage + 1) % 4; build(); }));
                 if (visPage == 0) {
                     items.add(feat("ambOn", "Включить Ambience"));
                     items.add(new Cycle("Погода", () -> VisualFx.WEATHER[d.ambWeather], () -> d.ambWeather = (d.ambWeather + 1) % 4));
@@ -87,6 +89,18 @@ public final class MainScreen extends UiScreen {
                     items.add(new Cycle("Тонировка экрана", () -> VisualFx.TINT[d.ambTint], () -> d.ambTint = (d.ambTint + 1) % 8));
                     items.add(feat("ambRain", "Дождь-оверлей на экране"));
                     items.add(new Slider("Плотность дождя", 20, 300, 20, "%", () -> d.rainDensity, v -> d.rainDensity = v));
+                } else if (visPage == 2) {
+                    items.add(feat("jumpCircles", "Jump Circles (круги при прыжке)"));
+                    items.add(feat("hitFx", "Hit Particles (частицы при ударе)"));
+                    items.add(new Cycle("Частицы", () -> CombatFx.HIT_MODES[d.hitMode], () -> d.hitMode = (d.hitMode + 1) % 4));
+                    items.add(feat("hitmarker", "Hitmarker (крестик при ударе)"));
+                    items.add(new Cycle("Звук попадания", () -> CombatFx.SOUNDS[d.hitSound], () -> d.hitSound = (d.hitSound + 1) % 5));
+                } else if (visPage == 3) {
+                    items.add(feat("zoomOn", "Zoom (удерживай C)"));
+                    items.add(new Slider("Сила зума", 2, 12, 1, "x", () -> d.zoomFactor, v -> d.zoomFactor = v));
+                    items.add(feat("flOn", "FreeLook (удерживай Left Alt)"));
+                    items.add(feat("itemPhys", "Item Physics (предметы лежат)"));
+                    items.add(feat("shulkerPrev", "Shulker Preview (в инвентаре)"));
                 } else {
                     items.add(feat("notif", "Уведомления (вкл/выкл функций)"));
                     items.add(feat("fastExp", "FastEXP (бутылки опыта без задержки)"));

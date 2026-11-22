@@ -18,15 +18,16 @@ public final class SecretScreen extends UiScreen {
     private static int tab;
     private int dragHud;   // 0 нет, 1 System, 2 Keybinds
     private int offX, offY;
-    private TextBox friendBox;
+    private TextBox friendBox, searchBox;
 
     public SecretScreen() { super("Скрытое меню"); }
 
-    private static final String[] TABS = {"ESP", "Tracers", "Мир", "Трап и ввод", "Друзья", "Ники и HUD"};
+    private static final String[] TABS = {"ESP", "Tracers", "Мир", "Трап и ввод", "Друзья", "Ники и HUD", "Поиск"};
 
     @Override
     protected void init() {
         String keepFriend = friendBox == null ? "" : friendBox.text;
+        String keepSearch = searchBox == null ? null : searchBox.text;
         items.clear();
         Cfg.Data d = Cfg.D;
         switch (tab) {
@@ -91,6 +92,21 @@ public final class SecretScreen extends UiScreen {
                 for (String f : new ArrayList<>(d.friends)) { if (shown++ < 6) items.add(new FriendRow(f)); }
                 if (d.friends.size() > 6) items.add(new Section("… ещё " + (d.friends.size() - 6) + " (.friend list)"));
             }
+            case 6 -> {
+                searchBox = new TextBox("Название блока (diamond_ore)", 32, this::applySearch);
+                searchBox.text = keepSearch != null ? keepSearch : d.srchQuery;
+                items.add(new Section("Block Search — подсветка блоков по названию"));
+                items.add(feat("srchOn", "Block Search"));
+                items.add(searchBox);
+                items.add(new ButtonRow("Применить", this::applySearch, "Алмазы", () -> setQ("diamond_ore")));
+                items.add(new ButtonRow("Золото", () -> setQ("gold_ore"), "Незерит", () -> setQ("ancient_debris")));
+                items.add(new ButtonRow("Изумруды", () -> setQ("emerald_ore"), "Спавнер", () -> setQ("spawner")));
+                items.add(new Slider("Радиус поиска", 8, 32, 4, " бл.", () -> d.srchRange, v -> d.srchRange = v));
+                items.add(new Section("Прочее"));
+                items.add(feat("scanOn", "Storage Scanner (счётчик контейнеров)"));
+                items.add(feat("hbOn", "Hitbox ESP (3D-рамки)"));
+                items.add(feat("hbMobs", "Hitbox: и мобы"));
+            }
             default -> {
                 items.add(new Section("NameTags — ники издалека, даже у крадущихся"));
                 items.add(new Toggle("NameTags", () -> d.names, v -> d.names = v));
@@ -106,6 +122,17 @@ public final class SecretScreen extends UiScreen {
         for (Item it : items) hh += it.h + 2;
         layoutPanel(400, hh);
         place(py + 56);
+    }
+
+    private void applySearch() {
+        if (searchBox != null) { Cfg.D.srchQuery = searchBox.text.trim(); Cfg.save(); }
+    }
+
+    private void setQ(String q) {
+        Cfg.D.srchQuery = q;
+        Cfg.D.srchOn = true;
+        Cfg.save();
+        init();
     }
 
     private void addFriend() {
@@ -137,10 +164,10 @@ public final class SecretScreen extends UiScreen {
         Gfx.shadow(c, "Скрытое меню", px + 30, py + 12, 0xFFFFFFFF);
         int x = px + 16;
         for (int i = 0; i < TABS.length; i++) {
-            int w = Gfx.tw(TABS[i]) + 16;
+            int w = Gfx.tw(TABS[i]) + 10;
             Gfx.round(c, x, py + 30, w, 18, 8, i == tab ? Cfg.D.accent : 0x40FFFFFF);
-            Gfx.text(c, TABS[i], x + 8, py + 35, 0xFFFFFFFF);
-            x += w + 6;
+            Gfx.text(c, TABS[i], x + 5, py + 35, 0xFFFFFFFF);
+            x += w + 4;
         }
     }
 
@@ -150,9 +177,9 @@ public final class SecretScreen extends UiScreen {
         if (click.button() == 0 && my >= py + 30 && my < py + 48) {
             int x = px + 16;
             for (int i = 0; i < TABS.length; i++) {
-                int w = Gfx.tw(TABS[i]) + 16;
+                int w = Gfx.tw(TABS[i]) + 10;
                 if (mx >= x && mx < x + w) { if (tab != i) { tab = i; init(); } return true; }
-                x += w + 6;
+                x += w + 4;
             }
         }
         if (super.mouseClicked(click, doubled)) return true;

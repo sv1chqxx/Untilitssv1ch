@@ -29,6 +29,9 @@ public abstract class EntityMixin {
         if (Freecam.active && (Object) this == MinecraftClient.getInstance().player) {
             Freecam.look(dx, dy);
             ci.cancel();
+        } else if (dev.untilits.CombatFx.flActive && (Object) this == MinecraftClient.getInstance().player) {
+            dev.untilits.CombatFx.look(dx, dy);
+            ci.cancel();
         }
     }
 }

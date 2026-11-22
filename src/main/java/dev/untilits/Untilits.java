@@ -18,6 +18,8 @@ public final class Untilits implements ClientModInitializer {
     private static final KeyBinding.Category CATEGORY = KeyBinding.Category.create(Identifier.of("untilits", "main"));
     private static KeyBinding menuKey;
     private static KeyBinding freecamKey;
+    private static KeyBinding zoomKey;
+    private static KeyBinding lookKey;
     private static boolean pDown;
 
     @Override
@@ -32,7 +34,21 @@ public final class Untilits implements ClientModInitializer {
                 "key.untilits.freecam", GLFW.GLFW_KEY_V,
                 CATEGORY));
 
+        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.untilits.zoom", GLFW.GLFW_KEY_C, CATEGORY));
+        lookKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.untilits.freelook", GLFW.GLFW_KEY_LEFT_ALT, CATEGORY));
+
+        net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+            if (world.isClient()) CombatFx.onHit(entity);
+            return net.minecraft.util.ActionResult.PASS;
+        });
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, w, h) ->
+                net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, ctx, mx, my, delta) -> ShulkerPreview.render(s, ctx, mx, my)));
+
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            CombatFx.zoomHeld = zoomKey.isPressed();
+            CombatFx.lookHeld = lookKey.isPressed();
+            CombatFx.tick(mc);
+            Scanners.tick(mc);
             HudModules.tick(mc);
             DamageFx.tick(mc);
             ChestEsp.tick(mc);
@@ -73,11 +89,15 @@ public final class Untilits implements ClientModInitializer {
                     VisualFx.renderRain(ctx, mc);
                     VisualFx.render(ctx, mc);
                     TargetEsp.renderInfo(ctx, mc);
+                    CombatFx.renderHud(ctx, mc);
+                    Scanners.renderHud(ctx, mc);
                     ArmorWatch.renderWarning(ctx, mc);
                     if (Projector.setup(mc, tp, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight())) {
                         DamageFx.render(ctx, mc, tp);
                         Predictions.render(ctx, mc, tp);
                         TargetEsp.render(ctx, mc, tp);
+                        CombatFx.renderWorld(ctx, mc);
+                        Scanners.render(ctx, mc, tp);
                         VisualFx.renderWorld(ctx, mc, tp);
                         Tracers.render(ctx, mc, tp);
                         ChestEsp.render(ctx, mc, tp);

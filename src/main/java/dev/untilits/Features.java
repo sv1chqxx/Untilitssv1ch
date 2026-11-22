@@ -40,6 +40,17 @@ public final class Features {
         reg("ambRain", "Дождь-оверлей", () -> Cfg.D.ambRain, v -> Cfg.D.ambRain = v);
         reg("notif", "Уведомления", () -> Cfg.D.notif, v -> Cfg.D.notif = v);
         reg("memOpt", "Memory Optimizer", () -> Cfg.D.memOpt, v -> Cfg.D.memOpt = v);
+        reg("jumpCircles", "Jump Circles", () -> Cfg.D.jumpCircles, v -> Cfg.D.jumpCircles = v);
+        reg("hitFx", "Hit Particles", () -> Cfg.D.hitFx, v -> Cfg.D.hitFx = v);
+        reg("hitmarker", "Hitmarker", () -> Cfg.D.hitmarker, v -> Cfg.D.hitmarker = v);
+        reg("zoomOn", "Zoom (клавиша C)", () -> Cfg.D.zoomOn, v -> Cfg.D.zoomOn = v);
+        reg("flOn", "FreeLook (Left Alt)", () -> Cfg.D.flOn, v -> Cfg.D.flOn = v);
+        reg("itemPhys", "Item Physics", () -> Cfg.D.itemPhys, v -> Cfg.D.itemPhys = v);
+        reg("shulkerPrev", "Shulker Preview", () -> Cfg.D.shulkerPrev, v -> Cfg.D.shulkerPrev = v);
+        reg("hbOn", "Hitbox ESP", () -> Cfg.D.hbOn, v -> Cfg.D.hbOn = v);
+        reg("hbMobs", "Hitbox: мобы", () -> Cfg.D.hbMobs, v -> Cfg.D.hbMobs = v);
+        reg("srchOn", "Block Search", () -> Cfg.D.srchOn, v -> Cfg.D.srchOn = v);
+        reg("scanOn", "Storage Scanner", () -> Cfg.D.scanOn, v -> Cfg.D.scanOn = v);
         reg("ambOn", "Ambience", () -> Cfg.D.ambOn, v -> Cfg.D.ambOn = v);
         reg("ambTimeLock", "Ambience: фикс. время", () -> Cfg.D.ambTimeLock, v -> Cfg.D.ambTimeLock = v);
         reg("fastExp", "FastEXP", () -> Cfg.D.fastExp, v -> Cfg.D.fastExp = v);

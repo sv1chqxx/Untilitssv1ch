@@ -107,6 +107,11 @@ public final class Cfg {
         public boolean tgtEsp, tgtInfo;
         public int nrMask, optMask, optDist;
         public boolean ambRain, notif = true, memOpt;
+        public boolean jumpCircles, hitFx, hitmarker, zoomOn, flOn, itemPhys, shulkerPrev;
+        public int hitMode, hitSound, zoomFactor = 4;
+        public boolean hbOn, hbMobs, srchOn, scanOn;
+        public String srchQuery = "diamond_ore";
+        public int srchRange = 16;
         public int ambTint;
         public int rainDensity = 100;
         public int tgtMode, tgtSkin, tgtSize = 100, tgtHue = 265;
@@ -149,6 +154,11 @@ public final class Cfg {
         D.tracerRange = clamp(D.tracerRange, 8, 512);
         D.tgtMode = clamp(D.tgtMode, 0, 6);
         D.optDist = clamp(D.optDist, 0, 256);
+        D.hitMode = clamp(D.hitMode, 0, 3);
+        D.hitSound = clamp(D.hitSound, 0, 4);
+        D.zoomFactor = clamp(D.zoomFactor, 2, 12);
+        D.srchRange = clamp(D.srchRange, 8, 32);
+        if (D.srchQuery == null) D.srchQuery = "";
         D.rainDensity = clamp(D.rainDensity, 20, 300);
         D.tgtSkin = clamp(D.tgtSkin, 0, 3);
         D.tgtSize = clamp(D.tgtSize, 40, 250);

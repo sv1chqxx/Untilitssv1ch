@@ -25,7 +25,7 @@ public final class MainScreen extends UiScreen {
     private static int tab = 0;
     private static int optPage = 0;
     private static int visPage = 0;
-    private static final String[] OPT_PAGES = {"NoRender: интерфейс", "NoRender: мир", "Оптимизация"};
+    private static final String[] OPT_PAGES = {"NoRender: интерфейс", "NoRender: мир", "Оптимизация", "Оптимизация 2"};
     private static boolean leftOpen, rightOpen;
     private static int wpScroll;
 
@@ -104,7 +104,7 @@ public final class MainScreen extends UiScreen {
                 items.add(feat("tgtInfo", "Карточка цели (ник, HP)"));
             }
             case 4 -> {
-                items.add(new Cycle("Раздел", () -> OPT_PAGES[optPage], () -> { optPage = (optPage + 1) % 3; build(); }));
+                items.add(new Cycle("Раздел", () -> OPT_PAGES[optPage], () -> { optPage = (optPage + 1) % 4; build(); }));
                 if (optPage == 0) {
                     items.add(nr("Убрать скорборд", NoRender.SCOREBOARD));
                     items.add(nr("Убрать боссбар", NoRender.BOSSBAR));
@@ -120,6 +120,9 @@ public final class MainScreen extends UiScreen {
                     items.add(nr("Убрать частицы ломания блоков", NoRender.BREAK));
                     items.add(nr("Убрать стрелы в игроках", NoRender.ARROWS));
                     items.add(nr("Убрать свечение игроков", NoRender.PGLOW));
+                } else if (optPage == 3) {
+                    items.add(opt("Simplified Leaves (грани листвы; затем F3+A)", NoRender.O_LEAVES));
+                    items.add(opt("Убрать свечение зачарований", NoRender.O_GLINT));
                 } else {
                     items.add(opt("Не рисовать предметы на земле", NoRender.O_ITEMS));
                     items.add(opt("Не рисовать шары опыта", NoRender.O_XP));

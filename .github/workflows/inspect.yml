@@ -30,7 +30,4 @@ jobs:
             javap -p -cp "$jar" net.minecraft.client.world.ClientChunkManager 2>/dev/null | grep -E "getChunk|getWorldChunk" >> inspect/out.txt
             javap -p -cp "$jar" net.minecraft.client.render.entity.EntityRenderDispatcher 2>/dev/null | grep -E "shouldRender|render\(" >> inspect/out.txt
           done
-          git config user.name github-actions
-          git config user.email actions@github.com
-          git add -f inspect
-          git commit -m "inspect output" && git push
+          echo ====ALLJARS; cat inspect/alljars.txt; echo ====JARS; cat inspect/jars.txt; echo ====OUT; cat inspect/out.txt

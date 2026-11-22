@@ -306,7 +306,7 @@ public final class MainScreen extends UiScreen {
 
     private int tabX(int i) {
         int x = px + 16;
-        for (int k = 0; k < i; k++) x += Gfx.tw(TABS[k]) + 22 + 4;
+        for (int k = 0; k < i; k++) x += Gfx.tw(TABS[k]) + 14 + 3;
         return x;
     }
 
@@ -315,10 +315,10 @@ public final class MainScreen extends UiScreen {
         Gfx.round(c, px + 16, py + 12, 8, 8, 4, Cfg.D.accent);
         Gfx.shadow(c, "Untilits", px + 30, py + 12, 0xFFFFFFFF);
         for (int i = 0; i < TABS.length; i++) {
-            int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 22, by = py + 28;
+            int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 14, by = py + 28;
             boolean sel = i == tab, hov = mx >= bx && mx < bx + bw && my >= by && my < by + 16;
             Gfx.round(c, bx, by, bw, 16, 8, sel ? Gfx.withAlpha(Cfg.D.accent, 210) : (hov ? 0x26FFFFFF : 0x14FFFFFF));
-            Gfx.text(c, TABS[i], bx + 11, by + 4, sel ? 0xFFFFFFFF : Gfx.DIM);
+            Gfx.text(c, TABS[i], bx + 7, by + 4, sel ? 0xFFFFFFFF : Gfx.DIM);
         }
         // «скрытая» точка входа: еле заметный круг в правом нижнем углу панели
         int cx = px + pw - 11, cy = py + ph - 11;
@@ -343,7 +343,7 @@ public final class MainScreen extends UiScreen {
         if (rightA > 0.9f && handleDrawer(right, false, click)) return true;
         if (b == 0) {
             for (int i = 0; i < TABS.length; i++) {
-                int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 22, by = py + 28;
+                int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 14, by = py + 28;
                 if (mx >= bx && mx < bx + bw && my >= by && my < by + 16) {
                     tab = i;
                     build();

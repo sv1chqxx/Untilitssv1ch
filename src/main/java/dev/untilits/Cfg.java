@@ -106,7 +106,8 @@ public final class Cfg {
         public int armorWarnPct = 15;
         public boolean tgtEsp, tgtInfo;
         public int nrMask, optMask, optDist;
-        public boolean ambRain, notif = true;
+        public boolean ambRain, notif = true, memOpt;
+        public int ambTint;
         public int rainDensity = 100;
         public int tgtMode, tgtSkin, tgtSize = 100, tgtHue = 265;
         public boolean tgtFlash = true;
@@ -155,7 +156,8 @@ public final class Cfg {
         D.ambTime = clamp(D.ambTime, 0, 24000);
         D.ambWeather = clamp(D.ambWeather, 0, 3);
         D.cdScale = clamp(D.cdScale, 50, 200);
-        D.killMode = clamp(D.killMode, 0, 3);
+        D.killMode = clamp(D.killMode, 0, 4);
+        D.ambTint = clamp(D.ambTint, 0, 7);
         D.weakHp = clamp(D.weakHp, 1, 20);
         D.chestRange = clamp(D.chestRange, 8, 128);
         D.freecamSpeed = clamp(D.freecamSpeed, 1, 30);

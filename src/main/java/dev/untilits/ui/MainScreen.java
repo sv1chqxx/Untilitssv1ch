@@ -81,14 +81,16 @@ public final class MainScreen extends UiScreen {
                     items.add(new Cycle("Погода", () -> VisualFx.WEATHER[d.ambWeather], () -> d.ambWeather = (d.ambWeather + 1) % 4));
                     items.add(feat("ambTimeLock", "Зафиксировать время"));
                     items.add(new Slider("Время суток", 0, 24000, 500, "", () -> d.ambTime, v -> d.ambTime = v));
+                    items.add(new Cycle("Тонировка экрана", () -> VisualFx.TINT[d.ambTint], () -> d.ambTint = (d.ambTint + 1) % 8));
                     items.add(feat("ambRain", "Дождь-оверлей на экране"));
                     items.add(new Slider("Плотность дождя", 20, 300, 20, "%", () -> d.rainDensity, v -> d.rainDensity = v));
                 } else {
                     items.add(feat("notif", "Уведомления (вкл/выкл функций)"));
                     items.add(feat("fastExp", "FastEXP (бутылки опыта без задержки)"));
                     items.add(feat("cdOn", "Cooldowns (зелье лечения)"));
+                    items.add(feat("memOpt", "Memory Optimizer (чистка памяти)"));
                     items.add(feat("killFx", "Kill Effects"));
-                    items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 4));
+                    items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 5));
                 }
             }
             case 3 -> {

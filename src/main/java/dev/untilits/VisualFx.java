@@ -15,7 +15,10 @@ import net.minecraft.component.DataComponentTypes;
 /** Ambience (время/погода), Cooldowns (зелье лечения), Kill Effects. */
 public final class VisualFx {
     public static final String[] WEATHER = {"Как есть", "Ясно", "Дождь", "Гроза"};
-    public static final String[] KILL = {"Молния", "Частицы", "Молния + частицы", "Астрал"};
+    public static final String[] KILL = {"Молния", "Частицы", "Молния + частицы", "Астрал", "Разлом"}
+    public static final String[] TINT = {"Нет", "Cyber Neon", "Crimson Blood", "Golden Sunset", "Violet Aurora", "Emerald Acid", "Ice Diamond", "Realistic"};
+    private static final int[] TINT_COL = {0, 0xFF2BD6, 0xB00020, 0xFFA040, 0x9B6BFF, 0x2BFF7A, 0x6BE6FF, 0x7F8FA0};
+    private static int memTick;;
     private static final long HEAL_MS = 18500;
     private static long healStart;
     private static ItemStack lastUsing = ItemStack.EMPTY;
@@ -32,6 +35,7 @@ public final class VisualFx {
         Cfg.Data d = Cfg.D;
         if (mc.world == null || mc.player == null) { watched = null; return; }
 
+        if (d.memOpt && ++memTick >= 6000) { memTick = 0; System.gc(); }
         if (d.ambOn) {
             if (d.ambWeather > 0) {
                 mc.world.setRainGradient(d.ambWeather >= 2 ? 1f : 0f);
@@ -73,7 +77,7 @@ public final class VisualFx {
     private static void boom(MinecraftClient mc, LivingEntity e) {
         double x = e.getX(), y = e.getY(), z = e.getZ();
         int m = Cfg.D.killMode;
-        if (m == 3) { kx = x; ky = y; kz = z; kAt = System.currentTimeMillis(); }
+        if (m == 3 || m == 4) { kx = x; ky = y; kz = z; kAt = System.currentTimeMillis(); }
         Notif.push("Цель убита", true);
         if (m == 0 || m == 2) {
             LightningEntity l = new LightningEntity(EntityType.LIGHTNING_BOLT, mc.world);
@@ -122,12 +126,35 @@ public final class VisualFx {
 
     /** Астрал: расширяющееся кольцо и поднимающиеся огоньки на месте смерти (в проекции). */
     public static void renderWorld(DrawContext c, MinecraftClient mc, float tp) {
-        if (!Cfg.D.killFx || Cfg.D.killMode != 3 || kAt == 0) return;
+        if (!Cfg.D.killFx || Cfg.D.killMode < 3 || kAt == 0) return;
         long age = System.currentTimeMillis() - kAt;
         if (age > 2600) return;
         float f = age / 2600f, a = 1f - f;
         float[] P = TargetEsp.P;
         int col = Gfx.hsv(Cfg.D.tgtHue / 360f, 0.55f, 1f);
+        if (Cfg.D.killMode == 4) {
+            // Разлом: вертикальное тёмное кольцо, из которого вылетают искры
+            float[] Q = P;
+            double sz = (0.4 + Math.sin(Math.min(1f, f * 3f) * Math.PI / 2) * 1.4) * (1f - Math.max(0f, f - 0.7f) / 0.3f);
+            int nn = 36;
+            float lx = 0, ly = 0;
+            boolean pv = false;
+            for (int i = 0; i <= nn; i++) {
+                double ang = i * Math.PI * 2 / nn;
+                boolean ok = Projector.project(kx + Math.cos(ang) * sz * 0.6, ky + 1.0 + Math.sin(ang) * sz, kz, Q);
+                if (ok && pv) {
+                    TargetEsp.seg(c, lx, ly, Q[0], Q[1], Gfx.withAlpha(col, (int) (255 * a)));
+                    TargetEsp.seg(c, lx + 1, ly + 1, Q[0] + 1, Q[1] + 1, Gfx.withAlpha(0x000000, (int) (200 * a)));
+                }
+                lx = Q[0]; ly = Q[1]; pv = ok;
+            }
+            for (int i = 0; i < 14; i++) {
+                double yy = ky + 1.0 + Math.sin(i * 1.9 + f * 6) * sz * 0.8;
+                if (!Projector.project(kx + Math.cos(i * 2.4 + f * 4) * 0.6, yy, kz + (i % 3 - 1) * 0.2, Q)) continue;
+                TargetEsp.spr(c, "glow", Q[0], Q[1], 8 + (i % 3) * 4, 0, Gfx.withAlpha(col, (int) (230 * a)));
+            }
+            return;
+        }
         int n = 40;
         double r = 0.4 + f * 2.4;
         float px = 0, py = 0;
@@ -150,6 +177,7 @@ public final class VisualFx {
     /** Дождь-оверлей: капли-штрихи по экрану, при грозе — вспышки. */
     public static void renderRain(DrawContext c, MinecraftClient mc) {
         Cfg.Data d = Cfg.D;
+        if (d.ambTint > 0 && mc.world != null) c.fill(0, 0, c.getScaledWindowWidth(), c.getScaledWindowHeight(), Gfx.withAlpha(TINT_COL[d.ambTint], 38));
         if (!d.ambRain || mc.world == null) return;
         boolean wet = d.ambOn && d.ambWeather >= 2 || mc.world.isRaining();
         if (!wet) return;

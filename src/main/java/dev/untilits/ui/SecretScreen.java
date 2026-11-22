@@ -16,7 +16,7 @@ public final class SecretScreen extends UiScreen {
     public SecretScreen() { super("Скрытое меню"); }
 
     private static final String[] TABS = {"ESP", "Tracers", "Мир", "Ники и HUD"};
-    private static final int[] HEIGHTS = {226, 182, 220, 214};
+    private static final int[] HEIGHTS = {248, 182, 220, 214};
 
     @Override
     protected void init() {
@@ -29,13 +29,14 @@ public final class SecretScreen extends UiScreen {
                 items.add(new Toggle("Игроки", () -> d.esp, v -> d.esp = v));
                 items.add(new Toggle("Мобы (враждебные красные, мирные зелёные)", () -> d.espMobs, v -> d.espMobs = v));
                 items.add(new Toggle("Предметы", () -> d.espItems, v -> d.espItems = v));
+                items.add(new Toggle("Ванильный контур-glow (тяжёлый, режет FPS)", () -> d.espGlow, v -> d.espGlow = v));
                 items.add(new Slider("Дальность ESP", 16, 512, 16, " бл.", () -> d.espRange, v -> d.espRange = v));
                 items.add(new Section("Слабые места — игроки с низким HP светятся оранжевым"));
                 items.add(new Toggle("Подсветка слабых мест", () -> d.weak, v -> d.weak = v));
                 items.add(new Slider("Порог HP (≤)", 1, 20, 1, " HP", () -> d.weakHp, v -> d.weakHp = v));
             }
             case 1 -> {
-                items.add(new Section("Tracers — линии к целям"));
+                items.add(new Section("Tracers — линии из прицела к целям"));
                 items.add(new Toggle("Tracers (игроки)", () -> d.tracers, v -> d.tracers = v));
                 items.add(new Toggle("К мобам", () -> d.tracersMobs, v -> d.tracersMobs = v));
                 items.add(new Toggle("К предметам", () -> d.tracersItems, v -> d.tracersItems = v));

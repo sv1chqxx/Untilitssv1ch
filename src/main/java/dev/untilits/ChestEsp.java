@@ -10,6 +10,7 @@ import net.minecraft.block.entity.TrappedChestBlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
@@ -30,7 +31,7 @@ public final class ChestEsp {
     public static void tick(MinecraftClient mc) {
         if (!Cfg.D.chestEsp || mc.world == null || mc.player == null) { cache = new ArrayList<>(); return; }
         if (timer-- > 0) return;
-        timer = 10;
+        timer = 20;
         List<Target> out = new ArrayList<>();
         int r = (Cfg.D.chestRange >> 4) + 1;
         int pcx = mc.player.getBlockX() >> 4, pcz = mc.player.getBlockZ() >> 4;
@@ -43,17 +44,14 @@ public final class ChestEsp {
                     int col = colorOf(be);
                     if (col == 0) continue;
                     if (be.getPos().getSquaredDistance(mc.player.getX(), mc.player.getY(), mc.player.getZ()) > max2) continue;
-                    Box b;
-                    try {
-                        var shape = be.getCachedState().getOutlineShape(mc.world, be.getPos());
-                        b = shape.isEmpty() ? new Box(be.getPos()) : shape.getBoundingBox().offset(be.getPos());
-                    } catch (Throwable t) { b = new Box(be.getPos()); }
+                    Box b = new Box(be.getPos());
                     out.add(new Target(b, col));
-                    if (out.size() >= 400) break;
                 }
             }
         }
-        cache = out;
+        double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
+        out.sort((u, v) -> Double.compare(u.box().getCenter().squaredDistanceTo(px, py, pz), v.box().getCenter().squaredDistanceTo(px, py, pz)));
+        cache = out.size() > 60 ? new ArrayList<>(out.subList(0, 60)) : out;
     }
 
     private static int colorOf(BlockEntity be) {
@@ -71,21 +69,8 @@ public final class ChestEsp {
         int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
         for (Target t : cache) {
             Box b = t.box();
-            float[][] pts = new float[8][];
-            boolean[] ok = new boolean[8];
-            for (int i = 0; i < 8; i++) {
-                double x = (i & 1) == 0 ? b.minX : b.maxX;
-                double y = (i & 2) == 0 ? b.minY : b.maxY;
-                double z = (i & 4) == 0 ? b.minZ : b.maxZ;
-                ok[i] = Projector.project(x, y, z, P);
-                pts[i] = new float[]{P[0], P[1]};
-            }
-            int[][] edges = {{0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7}};
-            for (int[] e : edges) {
-                if (!ok[e[0]] || !ok[e[1]]) continue;
-                Tracers.line(c, Math.round(pts[e[0]][0]), Math.round(pts[e[0]][1]),
-                        Math.round(pts[e[1]][0]), Math.round(pts[e[1]][1]), t.color(), sw, sh);
-            }
+            Vec3d m = b.getCenter();
+            Tracers.box(c, m.x, b.minY, m.z, (b.maxX - b.minX) * 0.5, b.maxY - b.minY, t.color(), sw, sh);
         }
     }
 }

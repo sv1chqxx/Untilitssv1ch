@@ -42,6 +42,7 @@ public final class Esp {
 
     public static boolean shouldGlow(Entity e) {
         Cfg.Data d = Cfg.D;
+        if (!d.espGlow) return false;
         int k = kind(e);
         if (k == 0) return false;
         MinecraftClient mc0 = MinecraftClient.getInstance();
@@ -59,4 +60,15 @@ public final class Esp {
     }
 
     public static int color(Entity e) { return isWeak(e) ? (WEAK & 0xFFFFFF) : colorOf(kind(e)); }
+
+    /** Нужно ли рисовать 2D-рамку для сущности (дешёвый ESP). */
+    public static boolean boxWanted(Entity e, int k) {
+        Cfg.Data d = Cfg.D;
+        return switch (k) {
+            case 1 -> d.esp || isWeak(e);
+            case 2, 3 -> d.espMobs;
+            case 4 -> d.espItems;
+            default -> false;
+        };
+    }
 }

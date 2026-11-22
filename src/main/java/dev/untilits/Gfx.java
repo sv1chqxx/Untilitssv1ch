@@ -27,16 +27,33 @@ public final class Gfx {
         return r - (int) Math.round(Math.sqrt(Math.max(0, r * r - d * d)));
     }
 
-    /** Скруглённый прямоугольник с вертикальным градиентом. */
+    /** Скруглённый прямоугольник с вертикальным градиентом (рисуется несколькими крупными заливками, а не построчно). */
     public static void round(DrawContext c, int x, int y, int w, int h, int r, int top, int bot) {
         if (w <= 0 || h <= 0) return;
         r = Math.min(r, Math.min(w, h) / 2);
-        for (int i = 0; i < h; i++) {
-            int dy = i < r ? i : (i >= h - r ? h - 1 - i : r);
-            int in = dy < r ? inset(dy, r) : 0;
-            int col = top == bot ? top : lerp(top, bot, h <= 1 ? 0f : i / (float) (h - 1));
-            if ((col >>> 24) == 0) continue;
-            c.fill(x + in, y + i, x + w - in, y + i + 1, col);
+        boolean solid = top == bot;
+        int mid = h - 2 * r;
+        // середина: один блок или несколько полос градиента
+        if (mid > 0) {
+            int n = solid ? 1 : Math.min(8, mid);
+            for (int k = 0; k < n; k++) {
+                int i0 = r + mid * k / n, i1 = r + mid * (k + 1) / n;
+                if (i1 <= i0) continue;
+                int col = solid ? top : lerp(top, bot, h <= 1 ? 0f : ((i0 + i1) * 0.5f) / (h - 1));
+                if ((col >>> 24) != 0) c.fill(x, y + i0, x + w, y + i1, col);
+            }
+        }
+        // углы: группируем соседние строки с одинаковым отступом
+        for (int pass = 0; pass < 2; pass++) {
+            int i = 0;
+            while (i < r) {
+                int in = inset(i, r), j = i + 1;
+                while (j < r && inset(j, r) == in) j++;
+                int row0 = pass == 0 ? i : h - j, row1 = pass == 0 ? j : h - i;
+                int col = solid ? top : lerp(top, bot, h <= 1 ? 0f : ((row0 + row1) * 0.5f) / (h - 1));
+                if ((col >>> 24) != 0) c.fill(x + in, y + row0, x + w - in, y + row1, col);
+                i = j;
+            }
         }
     }
 
@@ -46,17 +63,20 @@ public final class Gfx {
     public static void ring(DrawContext c, int x, int y, int w, int h, int r, int col) {
         if (w <= 0 || h <= 0) return;
         r = Math.min(r, Math.min(w, h) / 2);
-        for (int i = 0; i < h; i++) {
-            int dy = i < r ? i : (i >= h - r ? h - 1 - i : r);
-            int in = dy < r ? inset(dy, r) : 0;
-            if (i == 0 || i == h - 1) {
-                c.fill(x + in, y + i, x + w - in, y + i + 1, col);
-                continue;
+        int mid = h - 2 * r;
+        if (mid > 0) {
+            c.fill(x, y + r, x + 1, y + h - r, col);
+            c.fill(x + w - 1, y + r, x + w, y + h - r, col);
+        }
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = 0; i < r; i++) {
+                int in = inset(i, r);
+                int row = pass == 0 ? i : h - 1 - i;
+                if (i == 0) { c.fill(x + in, y + row, x + w - in, y + row + 1, col); continue; }
+                int seg = Math.max(1, inset(i - 1, r) - in);
+                c.fill(x + in, y + row, x + in + seg, y + row + 1, col);
+                c.fill(x + w - in - seg, y + row, x + w - in, y + row + 1, col);
             }
-            int prev = (dy < r && dy > 0) ? inset(dy - 1, r) : in;
-            int seg = Math.max(1, prev - in);
-            c.fill(x + in, y + i, x + in + seg, y + i + 1, col);
-            c.fill(x + w - in - seg, y + i, x + w - in, y + i + 1, col);
         }
     }
 

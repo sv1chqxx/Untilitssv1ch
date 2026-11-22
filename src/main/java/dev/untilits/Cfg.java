@@ -47,6 +47,7 @@ public final class Cfg {
         public int chestRange = 64;
         public boolean chestSpawners = false;
         public int freecamSpeed = 5;
+        public boolean espGlow = false;   // ванильный контур (тяжёлый для FPS)
         public boolean espMobs = false;
         public boolean espItems = false;
         public boolean tracers = false;

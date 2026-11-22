@@ -301,7 +301,6 @@ public final class MainScreen extends UiScreen {
         if (anim < 0.01f) return;
         int[] b = box(isLeft, list);
         int off = overlay ? Math.round((1f - anim) * (isLeft ? -b[2] : b[2])) : 0;
-        if (overlay) c.enableScissor(px, py, px + pw, py + ph);
         int bx = b[0] + off;
         int[] bb = {bx, b[1], b[2], b[3]};
         Gfx.glass(c, bx, b[1], b[2], b[3], 12, true);
@@ -317,7 +316,7 @@ public final class MainScreen extends UiScreen {
         int sc = isLeft ? scrollL : scrollR;
         placeDrawer(list, bb, sc);
         if (!overlay) c.enableScissor(bx, b[1] + 30, bx + b[2], b[1] + b[3] - 4);
-        else { c.disableScissor(); c.enableScissor(Math.max(px, bx), b[1] + 30, Math.min(px + pw, bx + b[2]), b[1] + b[3] - 4); }
+        else { c.enableScissor(Math.max(px, bx), b[1] + 30, Math.min(px + pw, bx + b[2]), b[1] + b[3] - 4); }
         for (Item it : list) if (it.y + it.h > b[1] + 28 && it.y < b[1] + b[3]) it.draw(c, mx, my);
         c.disableScissor();
         if (ms > 0) {
@@ -326,7 +325,6 @@ public final class MainScreen extends UiScreen {
             int ty = b[1] + 32 + (trackH - th) * sc / ms;
             Gfx.round(c, bx + b[2] - 5, ty, 2, th, 1, 0x55FFFFFF);
         }
-        if (overlay) c.disableScissor();
     }
 
     private int[] handle(boolean isLeft) {

@@ -12,10 +12,5 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '9.2.0' }
       - run: gradle build
-      - name: lookup
-        run: |
-          M=$(find /home/runner/.gradle -name mappings.jar -path "*yarn*" | head -1)
-          mkdir -p /tmp/m && cd /tmp/m && unzip -q -o "$M"
-          echo ====FIELDS; grep -E "field_8551|field_22021" mappings/mappings.tiny | head
-          echo ====KEYS; grep -E "class_2767\s|class_6880\s" mappings/mappings.tiny | head -3
-        continue-on-error: true
+      - name: javap
+        run: bash +e inspect.sh 2>&1 | head -300; true

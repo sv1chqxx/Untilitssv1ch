@@ -156,7 +156,7 @@ public final class Cfg {
         D.ambTime = clamp(D.ambTime, 0, 24000);
         D.ambWeather = clamp(D.ambWeather, 0, 3);
         D.cdScale = clamp(D.cdScale, 50, 200);
-        D.killMode = clamp(D.killMode, 0, 4);
+        D.killMode = clamp(D.killMode, 0, 6);
         D.ambTint = clamp(D.ambTint, 0, 7);
         D.weakHp = clamp(D.weakHp, 1, 20);
         D.chestRange = clamp(D.chestRange, 8, 128);

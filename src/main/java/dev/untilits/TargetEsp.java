@@ -62,10 +62,14 @@ public final class TargetEsp {
     }
 
     /** Пикселей на 1 блок на расстоянии точки. */
-    private static float pxPerBlock(double x, double y, double z) {
-        if (!Projector.project(x, y, z, P) || !Projector.project(x, y + 1, z, Q)) return 0;
-        return Math.abs(Q[1] - P[1]);
+    private static final float[] R1 = new float[3], R2 = new float[3];
+
+    static float pxPerBlock(double x, double y, double z) {
+        if (!Projector.project(x, y, z, R1) || !Projector.project(x, y + 1, z, R2)) return 0;
+        return Math.abs(R2[1] - R1[1]);
     }
+
+    public static long seenAt() { return seen; }
 
     public static void render(DrawContext c, MinecraftClient mc, float tp) {
         Cfg.Data d = Cfg.D;

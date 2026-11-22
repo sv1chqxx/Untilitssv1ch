@@ -27,7 +27,9 @@ public final class MainScreen extends UiScreen {
     private static int visPage = 0;
     private static final String[] OPT_PAGES = {"NoRender: интерфейс", "NoRender: мир", "Оптимизация", "Оптимизация 2"};
     private static boolean leftOpen, rightOpen;
-    private static int wpScroll;
+    private int scrollL, scrollR;
+    private int dw = DW;
+    private boolean overlay;
 
     private float leftA, rightA;
     private long lastNs = System.nanoTime();
@@ -43,6 +45,7 @@ public final class MainScreen extends UiScreen {
         build();
         buildLeft();
         buildRight();
+        relayout();
         leftA = leftOpen ? 1f : 0f;
         rightA = rightOpen ? 1f : 0f;
     }
@@ -90,7 +93,7 @@ public final class MainScreen extends UiScreen {
                     items.add(feat("cdOn", "Cooldowns (зелье лечения)"));
                     items.add(feat("memOpt", "Memory Optimizer (чистка памяти)"));
                     items.add(feat("killFx", "Kill Effects"));
-                    items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 5));
+                    items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 7));
                 }
             }
             case 3 -> {
@@ -150,12 +153,12 @@ public final class MainScreen extends UiScreen {
 
     private void addHere() {
         Cfg.WP w = Waypoints.addHere(MinecraftClient.getInstance(), wpName.text);
-        if (w != null) { wpName.text = ""; wpScroll = Math.max(0, Waypoints.list().size() - ROWS); buildLeft(); }
+        if (w != null) { wpName.text = ""; buildLeft(); scrollL = 1 << 20; }
     }
 
     private void addLook() {
         Cfg.WP w = Waypoints.addLook(MinecraftClient.getInstance(), wpName.text);
-        if (w != null) { wpName.text = ""; wpScroll = Math.max(0, Waypoints.list().size() - ROWS); buildLeft(); }
+        if (w != null) { wpName.text = ""; buildLeft(); scrollL = 1 << 20; }
     }
 
     private void buildLeft() {
@@ -167,9 +170,8 @@ public final class MainScreen extends UiScreen {
         left.add(wpName);
         left.add(new ButtonRow("+ Здесь", this::addHere, "+ По взгляду", this::addLook));
         int n = Waypoints.list().size();
-        wpScroll = Cfg.clamp(wpScroll, 0, Math.max(0, n - ROWS));
-        left.add(new Section("Метки (" + n + ")" + (n > ROWS ? "  ·  колесо — прокрутка" : "")));
-        for (int i = wpScroll; i < Math.min(n, wpScroll + ROWS); i++) left.add(new WpRow(Waypoints.list().get(i)));
+        left.add(new Section("Метки (" + n + ")"));
+        for (int i = 0; i < n; i++) left.add(new WpRow(Waypoints.list().get(i)));
         if (n == 0) left.add(new Hint("Пока пусто — поставь первую метку"));
     }
 
@@ -248,57 +250,107 @@ public final class MainScreen extends UiScreen {
         return h + 8;
     }
 
+    /** Размещает основную панель и решает, хватает ли места боковым (иначе — режим «поверх»). */
+    private void relayout() {
+        int gap = 6;
+        int open = (leftOpen ? 1 : 0) + (rightOpen ? 1 : 0);
+        int avail = width - 8;
+        dw = DW;
+        overlay = false;
+        if (open > 0 && pw + open * (dw + gap) > avail) {
+            dw = (avail - pw) / open - gap;
+            if (dw < 128) { overlay = true; dw = pw; }
+        }
+        float eL = ease(leftA), eR = ease(rightA);
+        if (overlay) {
+            px = (width - pw) / 2;
+        } else {
+            float W = pw + eL * (dw + gap) + eR * (dw + gap);
+            px = Math.round((width - W) / 2f + eL * (dw + gap));
+        }
+        place(py + 52);
+    }
+
+    private boolean overlayShown() { return overlay && (leftA > 0.02f || rightA > 0.02f); }
+
     private int[] box(boolean isLeft, List<Item> list) {
+        if (overlay) return new int[]{px, py, pw, ph};
         int dh = Math.min(height - 12, contentH(list));
         int dy = Math.max(6, py + ph / 2 - dh / 2);
         if (dy + dh > height - 6) dy = height - 6 - dh;
-        int finalX = isLeft ? px - DW - 6 : px + pw + 6;
-        if (isLeft && finalX < 4) finalX = 4;
-        if (!isLeft && finalX + DW > width - 4) finalX = width - 4 - DW;
-        float a = ease(isLeft ? leftA : rightA);
-        int startX = isLeft ? px : px + pw - DW;
-        int dx = Math.round(startX + (finalX - startX) * a);
-        return new int[]{dx, dy, DW, dh};
+        return new int[]{isLeft ? px - 6 - dw : px + pw + 6, dy, dw, dh};
     }
 
-    private void placeDrawer(List<Item> list, int[] b) {
-        int y = b[1] + 32;
+    private int maxScroll(List<Item> list, int[] b) {
+        int content = contentH(list) - 40 - 8;
+        return Math.max(0, content - (b[3] - 36 - 8));
+    }
+
+    private void placeDrawer(List<Item> list, int[] b, int scroll) {
+        int y = b[1] + 32 - scroll;
         for (Item it : list) {
             it.x = b[0] + 12;
-            it.w = DW - 24;
+            it.w = b[2] - 24;
             it.y = y;
             y += it.h + 2;
         }
     }
 
     private void drawDrawer(DrawContext c, boolean isLeft, List<Item> list, String title, int mx, int my) {
-        float anim = isLeft ? leftA : rightA;
+        float anim = ease(isLeft ? leftA : rightA);
         if (anim < 0.01f) return;
         int[] b = box(isLeft, list);
-        boolean room = isLeft ? px - DW - 6 >= 4 : px + pw + 6 + DW <= width - 4;
-        if (room) {
-            if (isLeft) c.enableScissor(0, 0, px, height); else c.enableScissor(px + pw, 0, width, height);
+        int off = overlay ? Math.round((1f - anim) * (isLeft ? -b[2] : b[2])) : 0;
+        if (overlay) c.enableScissor(px, py, px + pw, py + ph);
+        int bx = b[0] + off;
+        int[] bb = {bx, b[1], b[2], b[3]};
+        Gfx.glass(c, bx, b[1], b[2], b[3], 12, true);
+        Gfx.round(c, bx + 12, b[1] + 12, 6, 6, 3, Cfg.D.accent);
+        Gfx.shadow(c, title, bx + 24, b[1] + 11, 0xFFFFFFFF);
+        // кнопка закрытия
+        int cx = bx + b[2] - 22, cy = b[1] + 8;
+        boolean hov = mx >= cx && mx < cx + 14 && my >= cy && my < cy + 14;
+        Gfx.round(c, cx, cy, 14, 14, 7, hov ? 0x44FFFFFF : 0x20FFFFFF);
+        Gfx.text(c, "x", cx + 4, cy + 3, 0xFFFFFFFF);
+        int ms = maxScroll(list, b);
+        if (isLeft) scrollL = Cfg.clamp(scrollL, 0, ms); else scrollR = Cfg.clamp(scrollR, 0, ms);
+        int sc = isLeft ? scrollL : scrollR;
+        placeDrawer(list, bb, sc);
+        if (!overlay) c.enableScissor(bx, b[1] + 30, bx + b[2], b[1] + b[3] - 4);
+        else { c.disableScissor(); c.enableScissor(Math.max(px, bx), b[1] + 30, Math.min(px + pw, bx + b[2]), b[1] + b[3] - 4); }
+        for (Item it : list) if (it.y + it.h > b[1] + 28 && it.y < b[1] + b[3]) it.draw(c, mx, my);
+        c.disableScissor();
+        if (ms > 0) {
+            int trackH = b[3] - 40;
+            int th = Math.max(12, trackH * trackH / (trackH + ms));
+            int ty = b[1] + 32 + (trackH - th) * sc / ms;
+            Gfx.round(c, bx + b[2] - 5, ty, 2, th, 1, 0x55FFFFFF);
         }
-        Gfx.glass(c, b[0], b[1], b[2], b[3], 12, true);
-        Gfx.round(c, b[0] + 12, b[1] + 12, 6, 6, 3, Cfg.D.accent);
-        Gfx.shadow(c, title, b[0] + 24, b[1] + 11, 0xFFFFFFFF);
-        placeDrawer(list, b);
-        for (Item it : list) it.draw(c, mx, my);
-        if (room) c.disableScissor();
+        if (overlay) c.disableScissor();
     }
 
     private int[] handle(boolean isLeft) {
-        int hh = 52;
-        return new int[]{isLeft ? px - 11 : px + pw, py + ph / 2 - hh / 2, 11, hh};
+        int hh = 44;
+        return new int[]{isLeft ? px + 2 : px + pw - 11, py + ph / 2 - hh / 2, 9, hh};
     }
 
     private void drawHandle(DrawContext c, boolean isLeft, int mx, int my) {
         int[] h = handle(isLeft);
         boolean open = isLeft ? leftOpen : rightOpen;
-        boolean hov = mx >= h[0] && mx < h[0] + h[2] && my >= h[1] && my < h[1] + h[3];
-        Gfx.round(c, h[0], h[1], h[2], h[3], 5, open ? Gfx.withAlpha(Cfg.D.accent, 200) : (hov ? 0x40FFFFFF : 0x26FFFFFF));
-        String s = isLeft == open ? ">" : "<";
+        boolean hov = mx >= h[0] - 2 && mx < h[0] + h[2] + 2 && my >= h[1] && my < h[1] + h[3];
+        Gfx.round(c, h[0], h[1], h[2], h[3], 4, open ? Gfx.withAlpha(Cfg.D.accent, 200) : (hov ? 0x40FFFFFF : 0x22FFFFFF));
+        String s = isLeft ? (open ? "<" : ">") : (open ? ">" : "<");
         Gfx.text(c, s, h[0] + (h[2] - Gfx.tw(s)) / 2, h[1] + h[3] / 2 - 4, 0xFFFFFFFF);
+    }
+
+    private void toggle(boolean isLeft) {
+        if (isLeft) { leftOpen = !leftOpen; if (leftOpen && overlay) rightOpen = false; }
+        else { rightOpen = !rightOpen; if (rightOpen && overlay) leftOpen = false; }
+        // режим поверх определяется заново на следующем кадре; при смене режима закрываем лишнее
+        if (leftOpen && rightOpen) {
+            int avail = width - 8;
+            if (pw + 2 * (DW + 6) > avail && (avail - pw) / 2 - 6 < 128) { if (isLeft) rightOpen = false; else leftOpen = false; }
+        }
     }
 
     @Override
@@ -311,12 +363,19 @@ public final class MainScreen extends UiScreen {
         rightA += ((rightOpen ? 1f : 0f) - rightA) * k;
         if (Math.abs(leftA - (leftOpen ? 1f : 0f)) < 0.004f) leftA = leftOpen ? 1f : 0f;
         if (Math.abs(rightA - (rightOpen ? 1f : 0f)) < 0.004f) rightA = rightOpen ? 1f : 0f;
+        relayout();
 
-        super.render(c, mx, my, delta);
+        if (overlayShown() && Math.max(leftA, rightA) > 0.98f) {
+            c.fill(0, 0, width, height, 0x5A050810);
+        } else {
+            super.render(c, mx, my, delta);
+        }
         drawDrawer(c, true, left, "Метки", mx, my);
         drawDrawer(c, false, right, "Эффекты и броня", mx, my);
-        drawHandle(c, true, mx, my);
-        drawHandle(c, false, mx, my);
+        if (!overlayShown()) {
+            drawHandle(c, true, mx, my);
+            drawHandle(c, false, mx, my);
+        }
     }
 
     private int tabX(int i) {
@@ -335,7 +394,6 @@ public final class MainScreen extends UiScreen {
             Gfx.round(c, bx, by, bw, 16, 8, sel ? Gfx.withAlpha(Cfg.D.accent, 210) : (hov ? 0x26FFFFFF : 0x14FFFFFF));
             Gfx.text(c, TABS[i], bx + 7, by + 4, sel ? 0xFFFFFFFF : Gfx.DIM);
         }
-        // «скрытая» точка входа: еле заметный круг в правом нижнем углу панели
         int cx = px + pw - 11, cy = py + ph - 11;
         boolean near = Math.abs(mx - cx) <= 6 && Math.abs(my - cy) <= 6;
         Gfx.disc(c, cx, cy, 3, near ? 0x30FFFFFF : 0x12FFFFFF);
@@ -345,17 +403,29 @@ public final class MainScreen extends UiScreen {
     public boolean mouseClicked(Click click, boolean doubled) {
         int mx = (int) click.x(), my = (int) click.y();
         int b = click.button();
+        boolean ovl = overlayShown();
         if (b == 0) {
+            // закрытие крестиком
             for (int side = 0; side < 2; side++) {
-                int[] h = handle(side == 0);
-                if (mx >= h[0] && mx < h[0] + h[2] && my >= h[1] && my < h[1] + h[3]) {
-                    if (side == 0) leftOpen = !leftOpen; else rightOpen = !rightOpen;
+                boolean isLeft = side == 0;
+                if (!(isLeft ? leftOpen : rightOpen)) continue;
+                int[] bx = box(isLeft, isLeft ? left : right);
+                if (mx >= bx[0] + bx[2] - 22 && mx < bx[0] + bx[2] - 8 && my >= bx[1] + 8 && my < bx[1] + 22) {
+                    if (isLeft) leftOpen = false; else rightOpen = false;
+                    TextBox.focused = null;
                     return true;
                 }
             }
+            if (!ovl) {
+                for (int side = 0; side < 2; side++) {
+                    int[] h = handle(side == 0);
+                    if (mx >= h[0] - 2 && mx < h[0] + h[2] + 2 && my >= h[1] && my < h[1] + h[3]) { toggle(side == 0); return true; }
+                }
+            }
         }
-        if (leftA > 0.9f && handleDrawer(left, true, click)) return true;
-        if (rightA > 0.9f && handleDrawer(right, false, click)) return true;
+        if (leftOpen && leftA > 0.9f && handleDrawer(left, true, click, scrollL)) return true;
+        if (rightOpen && rightA > 0.9f && handleDrawer(right, false, click, scrollR)) return true;
+        if (ovl) return true;   // в режиме «поверх» основная панель не кликается
         if (b == 0) {
             for (int i = 0; i < TABS.length; i++) {
                 int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 14, by = py + 28;
@@ -374,27 +444,40 @@ public final class MainScreen extends UiScreen {
         return super.mouseClicked(click, doubled);
     }
 
-    private boolean handleDrawer(List<Item> list, boolean isLeft, Click click) {
+    private boolean handleDrawer(List<Item> list, boolean isLeft, Click click, int scroll) {
         int mx = (int) click.x(), my = (int) click.y();
         int[] bx = box(isLeft, list);
         if (mx < bx[0] || mx >= bx[0] + bx[2] || my < bx[1] || my >= bx[1] + bx[3]) return false;
-        bindingIdReset();
+        bindingId = null;
         TextBox.focused = null;
-        placeDrawer(list, bx);
-        clickItems(list, mx, my, click.button());
+        if (my >= bx[1] + 30 && my < bx[1] + bx[3] - 4) {
+            placeDrawer(list, bx, scroll);
+            clickItems(list, mx, my, click.button());
+        }
         return true;
     }
 
-    private void bindingIdReset() { bindingId = null; }
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyInput input) {
+        if (input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && bindingId == null && TextBox.focused == null && (leftOpen || rightOpen)) {
+            leftOpen = false;
+            rightOpen = false;
+            return true;
+        }
+        return super.keyPressed(input);
+    }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double hx, double vy) {
-        if (leftA > 0.9f) {
-            int[] b = box(true, left);
+        for (int side = 0; side < 2; side++) {
+            boolean isLeft = side == 0;
+            if (!(isLeft ? leftOpen : rightOpen)) continue;
+            List<Item> list = isLeft ? left : right;
+            int[] b = box(isLeft, list);
             if (mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
-                int n = Waypoints.list().size();
-                int ns = Cfg.clamp(wpScroll + (vy < 0 ? 1 : -1), 0, Math.max(0, n - ROWS));
-                if (ns != wpScroll) { wpScroll = ns; buildLeft(); }
+                int ms = maxScroll(list, b);
+                int step = vy < 0 ? 18 : -18;
+                if (isLeft) scrollL = Cfg.clamp(scrollL + step, 0, ms); else scrollR = Cfg.clamp(scrollR + step, 0, ms);
                 return true;
             }
         }

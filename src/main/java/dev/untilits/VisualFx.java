@@ -15,7 +15,7 @@ import net.minecraft.component.DataComponentTypes;
 /** Ambience (время/погода), Cooldowns (зелье лечения), Kill Effects. */
 public final class VisualFx {
     public static final String[] WEATHER = {"Как есть", "Ясно", "Дождь", "Гроза"};
-    public static final String[] KILL = {"Молния", "Частицы", "Молния + частицы", "Астрал", "Разлом"};
+    public static final String[] KILL = {"Молния", "Частицы", "Молния + частицы", "Астрал", "Разлом", "Бусификация", "FPV"};
     public static final String[] TINT = {"Нет", "Cyber Neon", "Crimson Blood", "Golden Sunset", "Violet Aurora", "Emerald Acid", "Ice Diamond", "Realistic"};
     private static final int[] TINT_COL = {0, 0xFF2BD6, 0xB00020, 0xFFA040, 0x9B6BFF, 0x2BFF7A, 0x6BE6FF, 0x7F8FA0};
     private static int memTick;;
@@ -59,7 +59,8 @@ public final class VisualFx {
         if (d.killFx) {
             LivingEntity t = TargetEsp.target;
             if (t != null && t != watched) { watched = t; fired = false; }
-            if (watched != null && !fired && (!watched.isAlive() || watched.getHealth() <= 0f)) {
+            if (watched != null && !fired && (watched.isDead() || watched.getHealth() <= 0f)
+                    && System.currentTimeMillis() - TargetEsp.seenAt() < 6000) {
                 fired = true;
                 boom(mc, watched);
             }
@@ -77,7 +78,7 @@ public final class VisualFx {
     private static void boom(MinecraftClient mc, LivingEntity e) {
         double x = e.getX(), y = e.getY(), z = e.getZ();
         int m = Cfg.D.killMode;
-        if (m == 3 || m == 4) { kx = x; ky = y; kz = z; kAt = System.currentTimeMillis(); }
+        if (m >= 3) { kx = x; ky = y; kz = z; kAt = System.currentTimeMillis(); }
         Notif.push("Цель убита", true);
         if (m == 0 || m == 2) {
             LightningEntity l = new LightningEntity(EntityType.LIGHTNING_BOLT, mc.world);
@@ -128,6 +129,8 @@ public final class VisualFx {
     public static void renderWorld(DrawContext c, MinecraftClient mc, float tp) {
         if (!Cfg.D.killFx || Cfg.D.killMode < 3 || kAt == 0) return;
         long age = System.currentTimeMillis() - kAt;
+        if (Cfg.D.killMode == 5) { bus(c, age); return; }
+        if (Cfg.D.killMode == 6) { fpv(c, age); return; }
         if (age > 2600) return;
         float f = age / 2600f, a = 1f - f;
         float[] P = TargetEsp.P;
@@ -204,5 +207,75 @@ public final class VisualFx {
             long ag = t - thunderAt;
             if (ag < 260) c.fill(0, 0, sw, sh, Gfx.withAlpha(0xFFFFFF, (int) (90 * (1f - ag / 260f))));
         }
+    }
+
+    /** Бусификация: автобус падает на место смерти, трясётся и улетает вверх. */
+    private static void bus(DrawContext c, long age) {
+        long dur = 3600;
+        if (age > dur) return;
+        float f = age / (float) dur;
+        double yy;
+        if (f < 0.3f) { float u = f / 0.3f; yy = ky + (1f - u * u) * 9.0; }
+        else if (f < 0.65f) yy = ky;
+        else { float u = (f - 0.65f) / 0.35f; yy = ky + u * u * 14.0; }
+        double sx = f >= 0.3f && f < 0.65f ? Math.sin(age * 0.09) * 0.06 : 0;
+        float ppb = TargetEsp.pxPerBlock(kx, yy, kz);
+        float[] Q = new float[3];
+        if (ppb <= 0 || !Projector.project(kx + sx, yy, kz, Q)) return;
+        var m = c.getMatrices();
+        m.pushMatrix();
+        m.translate(Q[0], Q[1]);
+        float k = ppb / 10f * 1.3f;
+        m.scale(k, k);
+        c.fill(-18, -17, 18, 0, 0xFFFFC107);        // корпус
+        c.fill(-18, -6, 18, -4, 0xFFE0A100);        // полоса
+        for (int i = 0; i < 5; i++) c.fill(-16 + i * 7, -14, -11 + i * 7, -8, 0xFF8FD3FF); // окна
+        c.fill(-18, -17, 18, -16, 0xFFFFE082);
+        c.fill(13, -14, 18, -3, 0xFF6FB6E8);        // лобовое
+        c.fill(-14, -3, -8, 2, 0xFF202020);         // колёса
+        c.fill(8, -3, 14, 2, 0xFF202020);
+        c.fill(-12, -1, -10, 0, 0xFF888888);
+        c.fill(10, -1, 12, 0, 0xFF888888);
+        m.popMatrix();
+    }
+
+    /** FPV: оверлей как у дрона — полосы, REC, таймер, рамка прицела, помехи. */
+    private static void fpv(DrawContext c, long age) {
+        long dur = 3800;
+        if (age > dur) return;
+        float f = age / (float) dur;
+        float a = Math.min(1f, Math.min(age / 250f, (dur - age) / 400f));
+        int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
+        int bar = (int) (sh * 0.09f * a);
+        c.fill(0, 0, sw, bar, Gfx.withAlpha(0x000000, 235));
+        c.fill(0, sh - bar, sw, sh, Gfx.withAlpha(0x000000, 235));
+        int edge = (int) (sw * 0.07f);
+        for (int i = 0; i < 6; i++) {
+            int al = (int) (a * (90 - i * 15));
+            c.fill(0, bar, edge - i * edge / 6, sh - bar, Gfx.withAlpha(0x000000, Math.max(0, al)));
+            c.fill(sw - edge + i * edge / 6, bar, sw, sh - bar, Gfx.withAlpha(0x000000, Math.max(0, al)));
+        }
+        for (int y = bar; y < sh - bar; y += 4) c.fill(0, y, sw, y + 1, Gfx.withAlpha(0x000000, (int) (28 * a)));
+        long ph = age / 90;
+        if (ph % 7 == 0 || ph % 11 == 0) {
+            int gy = (int) ((ph * 53) % Math.max(1, sh - 2 * bar)) + bar;
+            c.fill(0, gy, sw, gy + 3, Gfx.withAlpha(0xFFFFFF, 40));
+            c.fill(((int) ph * 13) % 20, gy + 5, sw, gy + 6, Gfx.withAlpha(0xFF5555, 50));
+        }
+        boolean blink = (age / 400) % 2 == 0;
+        if (blink) Gfx.disc(c, 18, bar + 14, 4, 0xFFFF3030);
+        Gfx.text(c, "REC", 27, bar + 10, 0xFFFFFFFF);
+        Gfx.text(c, "FPV", sw / 2 - Gfx.tw("FPV") / 2, bar + 10, 0xFFFFFFFF);
+        String tm = String.format("00:0%d.%d", (int) (age / 1000), (int) (age / 100 % 10));
+        Gfx.text(c, tm, sw - 14 - Gfx.tw(tm), bar + 10, 0xFFFFFFFF);
+        int bw = 28, bx = sw - 14 - bw, by = sh - bar - 18;
+        Gfx.ring(c, bx, by, bw, 8, 2, 0xAAFFFFFF);
+        c.fill(bx + 2, by + 2, bx + 2 + (int) ((bw - 4) * (1f - f * 0.3f)), by + 6, 0xAA55FF77);
+        int cx = sw / 2, cy = sh / 2, r = 22;
+        int col = 0xCCFFFFFF;
+        c.fill(cx - r, cy - r, cx - r + 8, cy - r + 1, col); c.fill(cx - r, cy - r, cx - r + 1, cy - r + 8, col);
+        c.fill(cx + r - 8, cy - r, cx + r, cy - r + 1, col); c.fill(cx + r - 1, cy - r, cx + r, cy - r + 8, col);
+        c.fill(cx - r, cy + r - 1, cx - r + 8, cy + r, col); c.fill(cx - r, cy + r - 8, cx - r + 1, cy + r, col);
+        c.fill(cx + r - 8, cy + r - 1, cx + r, cy + r, col); c.fill(cx + r - 1, cy + r - 8, cx + r, cy + r, col);
     }
 }

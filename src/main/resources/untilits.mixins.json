@@ -6,7 +6,11 @@
     "EntityMixin",
     "CameraMixin",
     "KeyboardInputMixin",
-    "NetworkMixin"
+    "NetworkMixin",
+    "GameRendererAccessor",
+    "ClientConnectionMixin",
+    "MinecraftClientMixin",
+    "LivingEntityMixin"
   ],
   "injectors": { "defaultRequire": 0 }
 }

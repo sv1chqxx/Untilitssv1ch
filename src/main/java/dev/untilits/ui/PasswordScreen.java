@@ -17,6 +17,9 @@ public final class PasswordScreen extends UiScreen {
     protected void init() { layoutPanel(250, 112); }
 
     @Override
+    protected boolean showBindHint() { return false; }
+
+    @Override
     protected void header(DrawContext c, int mx, int my) {
         Gfx.shadow(c, "Код доступа", px + 16, py + 14, 0xFFFFFFFF);
         boolean err = System.currentTimeMillis() - errAt < 600;

@@ -1,0 +1,55 @@
+package dev.untilits;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
+/** Реестр переключаемых функций: к ним можно привязать клавишу (СКМ по функции в меню, затем клавиша). */
+public final class Features {
+    public record F(String id, String label, BooleanSupplier get, Consumer<Boolean> set) { }
+
+    public static final Map<String, F> ALL = new LinkedHashMap<>();
+
+    private static void reg(String id, String label, BooleanSupplier g, Consumer<Boolean> s) { ALL.put(id, new F(id, label, g, s)); }
+
+    static {
+        reg("esp", "ESP игроки", () -> Cfg.D.esp, v -> Cfg.D.esp = v);
+        reg("espMobs", "ESP мобы", () -> Cfg.D.espMobs, v -> Cfg.D.espMobs = v);
+        reg("espItems", "ESP предметы", () -> Cfg.D.espItems, v -> Cfg.D.espItems = v);
+        reg("espGlow", "ESP контур-glow", () -> Cfg.D.espGlow, v -> Cfg.D.espGlow = v);
+        reg("weak", "Слабые места", () -> Cfg.D.weak, v -> Cfg.D.weak = v);
+        reg("tracers", "Tracers", () -> Cfg.D.tracers, v -> Cfg.D.tracers = v);
+        reg("tracersMobs", "Tracers мобы", () -> Cfg.D.tracersMobs, v -> Cfg.D.tracersMobs = v);
+        reg("tracersItems", "Tracers предметы", () -> Cfg.D.tracersItems, v -> Cfg.D.tracersItems = v);
+        reg("chestEsp", "Chest ESP", () -> Cfg.D.chestEsp, v -> Cfg.D.chestEsp = v);
+        reg("chestSpawners", "Спавнеры", () -> Cfg.D.chestSpawners, v -> Cfg.D.chestSpawners = v);
+        reg("freecam", "FreeCam", () -> Freecam.active, Freecam::set);
+        reg("names", "NameTags", () -> Cfg.D.names, v -> Cfg.D.names = v);
+        reg("sysHud", "System HUD", () -> Cfg.D.sysHud, v -> Cfg.D.sysHud = v);
+        reg("kbHud", "Таблица кейбиндов", () -> Cfg.D.kbHud, v -> Cfg.D.kbHud = v);
+        reg("trapTimer", "Trap Timer", () -> Cfg.D.trapTimer, v -> Cfg.D.trapTimer = v);
+        reg("zeroTcp", "TCP NoDelay", () -> Cfg.D.zeroTcp, v -> Cfg.D.zeroTcp = v);
+        reg("zeroJump", "Без задержки прыжка", () -> Cfg.D.zeroJump, v -> Cfg.D.zeroJump = v);
+        reg("zeroAttack", "Без штрафа атаки", () -> Cfg.D.zeroAttack, v -> Cfg.D.zeroAttack = v);
+        reg("zeroRaycast", "Raycast перед ударом", () -> Cfg.D.zeroRaycast, v -> Cfg.D.zeroRaycast = v);
+        reg("zeroSnap", "SnapTap (SOCD)", () -> Cfg.D.zeroSnap, v -> Cfg.D.zeroSnap = v);
+        reg("potionHud", "Potion HUD", () -> Cfg.D.potionHud, v -> Cfg.D.potionHud = v);
+        reg("predict", "Predictions", () -> Cfg.D.predict, v -> Cfg.D.predict = v);
+        reg("predictFlying", "Предикт чужих снарядов", () -> Cfg.D.predictFlying, v -> Cfg.D.predictFlying = v);
+        reg("armorOver", "Броня над игроком", () -> Cfg.D.armorOver, v -> Cfg.D.armorOver = v);
+        reg("armorWarn", "Предупреждение о броне", () -> Cfg.D.armorWarn, v -> Cfg.D.armorWarn = v);
+        reg("wpEnabled", "Метки (waypoints)", () -> Cfg.D.wpEnabled, v -> Cfg.D.wpEnabled = v);
+        reg("wpDeath", "Метка смерти", () -> Cfg.D.wpDeath, v -> Cfg.D.wpDeath = v);
+        reg("fps", "FPS", () -> Cfg.D.fps, v -> Cfg.D.fps = v);
+        reg("cps", "CPS", () -> Cfg.D.cps, v -> Cfg.D.cps = v);
+        reg("ping", "Пинг", () -> Cfg.D.ping, v -> Cfg.D.ping = v);
+        reg("coords", "Координаты", () -> Cfg.D.coords, v -> Cfg.D.coords = v);
+        reg("keys", "Клавиши", () -> Cfg.D.keys, v -> Cfg.D.keys = v);
+        reg("armor", "Броня", () -> Cfg.D.armor, v -> Cfg.D.armor = v);
+        reg("damageNumbers", "Цифры урона", () -> Cfg.D.damageNumbers, v -> Cfg.D.damageNumbers = v);
+        reg("blood", "Кровь", () -> Cfg.D.blood, v -> Cfg.D.blood = v);
+    }
+
+    private Features() { }
+}

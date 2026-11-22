@@ -3,24 +3,30 @@ package dev.untilits.ui;
 import dev.untilits.Cfg;
 import dev.untilits.Freecam;
 import dev.untilits.Gfx;
+import dev.untilits.Friends;
+import dev.untilits.KeybindsHud;
 import dev.untilits.SysHud;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.player.PlayerEntity;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 
 /** Скрытое меню: PlayerESP, NameTags, System HUD. Открывается только после ввода кода. */
 public final class SecretScreen extends UiScreen {
     private static int tab;
-    private boolean dragHud;
+    private int dragHud;   // 0 нет, 1 System, 2 Keybinds
     private int offX, offY;
+    private TextBox friendBox;
 
     public SecretScreen() { super("Скрытое меню"); }
 
-    private static final String[] TABS = {"ESP", "Tracers", "Мир", "Ники и HUD"};
-    private static final int[] HEIGHTS = {248, 182, 220, 214};
+    private static final String[] TABS = {"ESP", "Tracers", "Мир", "Трап и ввод", "Друзья", "Ники и HUD"};
 
     @Override
     protected void init() {
-        layoutPanel(400, HEIGHTS[tab]);
+        String keepFriend = friendBox == null ? "" : friendBox.text;
         items.clear();
         Cfg.Data d = Cfg.D;
         switch (tab) {
@@ -51,6 +57,40 @@ public final class SecretScreen extends UiScreen {
                 items.add(new Toggle("FreeCam", () -> Freecam.active, v -> Freecam.set(v)));
                 items.add(new Slider("Скорость камеры", 1, 30, 1, "", () -> d.freecamSpeed, v -> d.freecamSpeed = v));
             }
+            case 3 -> {
+                items.add(new Section("Trap Timer — таймер на поставленной трапке"));
+                items.add(feat("trapTimer", "Trap Timer"));
+                items.add(new Slider("Размер таймера", 40, 250, 10, "%", () -> d.trapScale, v -> d.trapScale = v));
+                items.add(new Section("ZeroInput — меньше задержек ввода"));
+                items.add(feat("zeroTcp", "TCP_NODELAY (со следующего подключения)"));
+                items.add(feat("zeroJump", "Прыжок без задержки"));
+                items.add(feat("zeroAttack", "Атака без кулдауна клика"));
+                items.add(feat("zeroRaycast", "Свежий raycast при клике"));
+                items.add(feat("zeroSnap", "SnapTap (A/D и W/S — последняя клавиша)"));
+            }
+            case 4 -> {
+                friendBox = new TextBox("Ник друга", 16, this::addFriend);
+                friendBox.text = keepFriend;
+                items.add(new Section("Друзья — зелёные ники"));
+                items.add(friendBox);
+                items.add(new ButtonRow("Добавить", this::addFriend, "Игрок в прицеле", this::addLooked));
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.world != null && mc.player != null) {
+                    List<String> near = new ArrayList<>();
+                    for (PlayerEntity p : mc.world.getPlayers()) {
+                        String n = p.getName().getString();
+                        if (p != mc.player && !Friends.is(n) && Friends.valid(n) && near.size() < 4) near.add(n);
+                    }
+                    if (!near.isEmpty()) {
+                        items.add(new Section("Рядом"));
+                        for (String n : near) items.add(new Button("+ " + n, () -> { Friends.add(n); init(); }));
+                    }
+                }
+                items.add(new Section("Список (" + d.friends.size() + ")"));
+                int shown = 0;
+                for (String f : new ArrayList<>(d.friends)) { if (shown++ < 6) items.add(new FriendRow(f)); }
+                if (d.friends.size() > 6) items.add(new Section("… ещё " + (d.friends.size() - 6) + " (.friend list)"));
+            }
             default -> {
                 items.add(new Section("NameTags — ники издалека, даже у крадущихся"));
                 items.add(new Toggle("NameTags", () -> d.names, v -> d.names = v));
@@ -58,10 +98,37 @@ public final class SecretScreen extends UiScreen {
                 items.add(new Toggle("Показывать HP", () -> d.nameHp, v -> d.nameHp = v));
                 items.add(new Toggle("Показывать броню и предмет", () -> d.nameItems, v -> d.nameItems = v));
                 items.add(new Section("Hud — панель System (перетащи мышью)"));
-                items.add(new Toggle("System HUD (FPS / MS / TPS)", () -> d.sysHud, v -> d.sysHud = v));
+                items.add(feat("sysHud", "System HUD (FPS / MS / TPS)"));
+                items.add(feat("kbHud", "Таблица биндов (ср. кнопка по функции в меню)"));
             }
         }
+        int hh = 56 + 14;
+        for (Item it : items) hh += it.h + 2;
+        layoutPanel(400, hh);
         place(py + 56);
+    }
+
+    private void addFriend() {
+        if (friendBox != null && Friends.add(friendBox.text.trim())) { friendBox.text = ""; init(); }
+    }
+
+    private void addLooked() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.targetedEntity instanceof PlayerEntity p && Friends.add(p.getName().getString())) init();
+    }
+
+    private final class FriendRow extends Item {
+        final String name;
+        FriendRow(String n) { name = n; }
+        void draw(DrawContext c, int mx, int my) {
+            hover(c, mx, my);
+            Gfx.text(c, name, x, y + 5, 0xFF55FF55);
+            Gfx.text(c, "x", x + w - 6, y + 5, 0xFFFF8A8A);
+        }
+        boolean click(int mx, int my) {
+            if (mx >= x + w - 14) { Friends.remove(name); init(); }
+            return false;
+        }
     }
 
     @Override
@@ -91,9 +158,16 @@ public final class SecretScreen extends UiScreen {
         if (super.mouseClicked(click, doubled)) return true;
         if (click.button() == 0 && Cfg.D.sysHud
                 && mx >= SysHud.bx && mx < SysHud.bx + SysHud.bw && my >= SysHud.by && my < SysHud.by + SysHud.bh) {
-            dragHud = true;
+            dragHud = 1;
             offX = mx - SysHud.bx;
             offY = my - SysHud.by;
+            return true;
+        }
+        if (click.button() == 0 && Cfg.D.kbHud
+                && mx >= KeybindsHud.bx && mx < KeybindsHud.bx + KeybindsHud.bw && my >= KeybindsHud.by && my < KeybindsHud.by + KeybindsHud.bh) {
+            dragHud = 2;
+            offX = mx - KeybindsHud.bx;
+            offY = my - KeybindsHud.by;
             return true;
         }
         return false;
@@ -101,9 +175,14 @@ public final class SecretScreen extends UiScreen {
 
     @Override
     public boolean mouseDragged(Click click, double dx, double dy) {
-        if (dragHud) {
+        if (dragHud == 1) {
             Cfg.D.sysX = (int) click.x() - offX;
             Cfg.D.sysY = (int) click.y() - offY;
+            return true;
+        }
+        if (dragHud == 2) {
+            Cfg.D.kbX = (int) click.x() - offX;
+            Cfg.D.kbY = (int) click.y() - offY;
             return true;
         }
         return super.mouseDragged(click, dx, dy);
@@ -111,7 +190,7 @@ public final class SecretScreen extends UiScreen {
 
     @Override
     public boolean mouseReleased(Click click) {
-        if (dragHud) { dragHud = false; Cfg.save(); return true; }
+        if (dragHud != 0) { dragHud = 0; Cfg.save(); return true; }
         return super.mouseReleased(click);
     }
 }

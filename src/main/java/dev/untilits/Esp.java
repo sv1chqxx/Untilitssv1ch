@@ -59,7 +59,12 @@ public final class Esp {
         return e.squaredDistanceTo(mc.player) <= r * r;
     }
 
-    public static int color(Entity e) { return isWeak(e) ? (WEAK & 0xFFFFFF) : colorOf(kind(e)); }
+    public static final int FRIEND = 0x55FF55;
+
+    public static int color(Entity e) {
+        if (e instanceof AbstractClientPlayerEntity p && Friends.is(p.getName().getString())) return FRIEND;
+        return isWeak(e) ? (WEAK & 0xFFFFFF) : colorOf(kind(e));
+    }
 
     /** Нужно ли рисовать 2D-рамку для сущности (дешёвый ESP). */
     public static boolean boxWanted(Entity e, int k) {

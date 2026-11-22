@@ -9,7 +9,31 @@ import net.minecraft.util.math.Vec3d;
 public final class Tracers {
     private static final float[] P = new float[3];
 
+    private static final java.util.List<Entity> CAND = new java.util.ArrayList<>();
+    private static int timer;
+
     private Tracers() { }
+
+    /** Раз в несколько тиков собираем кандидатов (игроки/мобы/предметы в радиусе), чтобы не обходить всех сущностей каждый кадр. */
+    public static void tick(MinecraftClient mc) {
+        Cfg.Data d = Cfg.D;
+        if (mc.world == null || mc.player == null || !(d.tracers || d.esp || d.espMobs || d.espItems || d.weak)) {
+            CAND.clear();
+            return;
+        }
+        if (timer-- > 0) return;
+        timer = 3;
+        CAND.clear();
+        double r = Math.max(d.espRange, d.tracerRange);
+        double r2 = r * r;
+        int n = 0;
+        for (Entity e : mc.world.getEntities()) {
+            if (e == mc.player || Esp.kind(e) == 0) continue;
+            if (e.squaredDistanceTo(mc.player) > r2) continue;
+            CAND.add(e);
+            if (++n >= 300) break;
+        }
+    }
 
     public static void render(DrawContext c, MinecraftClient mc, float tp) {
         Cfg.Data d = Cfg.D;
@@ -18,8 +42,9 @@ public final class Tracers {
         int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
         float cx = sw / 2f, cy = sh / 2f;
         double espR2 = (double) d.espRange * d.espRange, trR2 = (double) d.tracerRange * d.tracerRange;
-        for (Entity e : mc.world.getEntities()) {
-            if (e == mc.player) continue;
+        for (int i = 0, n = CAND.size(); i < n; i++) {
+            Entity e = CAND.get(i);
+            if (e.isRemoved()) continue;
             int k = Esp.kind(e);
             if (k == 0) continue;
             double dist2 = e.squaredDistanceTo(mc.player);

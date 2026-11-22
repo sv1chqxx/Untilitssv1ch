@@ -1,7 +1,9 @@
 package dev.untilits.mixin;
 
 import dev.untilits.Tps;
+import dev.untilits.TrapTimer;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,5 +15,10 @@ public abstract class NetworkMixin {
     @Inject(method = "onWorldTimeUpdate", at = @At("TAIL"), require = 0)
     private void untilits$tps(WorldTimeUpdateS2CPacket packet, CallbackInfo ci) {
         Tps.onTimePacket();
+    }
+
+    @Inject(method = "onPlaySound", at = @At("HEAD"), require = 0)
+    private void untilits$sound(PlaySoundS2CPacket packet, CallbackInfo ci) {
+        TrapTimer.onSound(packet);
     }
 }

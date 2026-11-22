@@ -2,14 +2,32 @@ package dev.untilits.ui;
 
 import dev.untilits.Cfg;
 import dev.untilits.Gfx;
+import dev.untilits.Waypoints;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 
-/** Обычное меню (P). Внизу справа — еле заметный круг, ведущий к вводу кода. */
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Обычное меню (P). По бокам выезжают панели: слева — Метки (waypoints), справа — Эффекты, Predictions, Броня.
+ * Внизу справа — еле заметный круг, ведущий к вводу кода.
+ */
 public final class MainScreen extends UiScreen {
     private static final String[] TABS = {"HUD", "Эффекты", "Цвета"};
     private static final String[] CORNERS = {"Лево-верх", "Право-верх", "Лево-низ", "Право-низ"};
+    private static final int DW = 184;       // ширина боковой панели
+    private static final int ROWS = 5;       // строк меток на экране
     private static int tab = 0;
+    private static boolean leftOpen, rightOpen;
+    private static int wpScroll;
+
+    private float leftA, rightA;
+    private long lastNs = System.nanoTime();
+    private final List<Item> left = new ArrayList<>();
+    private final List<Item> right = new ArrayList<>();
+    private TextBox wpName;
 
     public MainScreen() { super("Untilits"); }
 
@@ -17,27 +35,33 @@ public final class MainScreen extends UiScreen {
     protected void init() {
         layoutPanel(380, 226);
         build();
+        buildLeft();
+        buildRight();
+        leftA = leftOpen ? 1f : 0f;
+        rightA = rightOpen ? 1f : 0f;
     }
+
+    // ---------------- основная панель ----------------
 
     private void build() {
         items.clear();
         Cfg.Data d = Cfg.D;
         switch (tab) {
             case 0 -> {
-                items.add(new Toggle("FPS", () -> d.fps, v -> d.fps = v));
-                items.add(new Toggle("CPS (клики в секунду)", () -> d.cps, v -> d.cps = v));
-                items.add(new Toggle("Пинг", () -> d.ping, v -> d.ping = v));
-                items.add(new Toggle("Координаты", () -> d.coords, v -> d.coords = v));
-                items.add(new Toggle("Клавиши (WASD / мышь)", () -> d.keys, v -> d.keys = v));
-                items.add(new Toggle("Броня и прочность", () -> d.armor, v -> d.armor = v));
+                items.add(feat("fps", "FPS"));
+                items.add(feat("cps", "CPS (клики в секунду)"));
+                items.add(feat("ping", "Пинг"));
+                items.add(feat("coords", "Координаты"));
+                items.add(feat("keys", "Клавиши (WASD / мышь)"));
+                items.add(feat("armor", "Броня и прочность"));
                 items.add(new Cycle("Положение HUD", () -> CORNERS[d.hudCorner], () -> d.hudCorner = (d.hudCorner + 1) % 4));
             }
             case 1 -> {
                 items.add(new Section("Цифры урона"));
-                items.add(new Toggle("Показывать цифры урона", () -> d.damageNumbers, v -> d.damageNumbers = v));
+                items.add(feat("damageNumbers", "Показывать цифры урона"));
                 items.add(new Slider("Размер цифр", 50, 250, 10, "%", () -> d.dmgScale, v -> d.dmgScale = v));
                 items.add(new Section("Кровь"));
-                items.add(new Toggle("Кровь при ударах", () -> d.blood, v -> d.blood = v));
+                items.add(feat("blood", "Кровь при ударах"));
                 items.add(new Slider("Количество крови", 25, 300, 25, "%", () -> d.bloodAmount, v -> d.bloodAmount = v));
             }
             default -> {
@@ -52,6 +76,179 @@ public final class MainScreen extends UiScreen {
             }
         }
         place(py + 52);
+    }
+
+    // ---------------- левая панель: метки ----------------
+
+    private void addHere() {
+        Cfg.WP w = Waypoints.addHere(MinecraftClient.getInstance(), wpName.text);
+        if (w != null) { wpName.text = ""; wpScroll = Math.max(0, Waypoints.list().size() - ROWS); buildLeft(); }
+    }
+
+    private void addLook() {
+        Cfg.WP w = Waypoints.addLook(MinecraftClient.getInstance(), wpName.text);
+        if (w != null) { wpName.text = ""; wpScroll = Math.max(0, Waypoints.list().size() - ROWS); buildLeft(); }
+    }
+
+    private void buildLeft() {
+        String keep = wpName == null ? "" : wpName.text;
+        left.clear();
+        wpName = new TextBox("Название метки", 22, this::addHere);
+        wpName.text = keep;
+        left.add(new Section("Новая метка"));
+        left.add(wpName);
+        left.add(new ButtonRow("+ Здесь", this::addHere, "+ По взгляду", this::addLook));
+        int n = Waypoints.list().size();
+        wpScroll = Cfg.clamp(wpScroll, 0, Math.max(0, n - ROWS));
+        left.add(new Section("Метки (" + n + ")" + (n > ROWS ? "  ·  колесо — прокрутка" : "")));
+        for (int i = wpScroll; i < Math.min(n, wpScroll + ROWS); i++) left.add(new WpRow(Waypoints.list().get(i)));
+        if (n == 0) left.add(new Hint("Пока пусто — поставь первую метку"));
+    }
+
+    private final class WpRow extends Item {
+        final Cfg.WP wp;
+        WpRow(Cfg.WP wp) { this.wp = wp; h = 26; }
+
+        void draw(DrawContext c, int mx, int my) {
+            hover(c, mx, my);
+            int col = 0xFF000000 | wp.color;
+            Gfx.disc(c, x + 5, y + 8, 4, wp.visible ? col : Gfx.withAlpha(col, 70));
+            String name = wp.name;
+            while (name.length() > 3 && Gfx.tw(name) > w - 52) name = name.substring(0, name.length() - 1);
+            Gfx.text(c, name, x + 14, y + 4, wp.visible ? Gfx.TEXT : Gfx.DIM);
+            MinecraftClient mc = MinecraftClient.getInstance();
+            String sub = wp.x + " " + wp.y + " " + wp.z;
+            if (mc.player != null && wp.dim.equals(Waypoints.dim(mc)))
+                sub += "  ·  " + Waypoints.distText(Math.sqrt(mc.player.getEntityPos().squaredDistanceTo(wp.x + .5, wp.y + .5, wp.z + .5)));
+            else sub += "  ·  " + (wp.dim.endsWith("nether") ? "Незер" : wp.dim.endsWith("end") ? "Энд" : "др. мир");
+            Gfx.text(c, sub, x + 14, y + 15, 0x66FFFFFF);
+            // глаз и крестик
+            int ex = x + w - 24;
+            if (wp.visible) Gfx.round(c, ex, y + 4, 9, 6, 3, Gfx.withAlpha(Cfg.D.accent, 230));
+            else Gfx.ring(c, ex, y + 4, 9, 6, 3, 0x66FFFFFF);
+            Gfx.text(c, "x", x + w - 8, y + 4, 0xFFFF8A8A);
+        }
+
+        boolean click(int mx, int my) {
+            if (mx < x + 11) { // цвет по кругу
+                int i = 0;
+                for (int k = 0; k < Waypoints.PALETTE.length; k++) if (Waypoints.PALETTE[k] == wp.color) i = k;
+                wp.color = Waypoints.PALETTE[(i + 1) % Waypoints.PALETTE.length];
+            } else if (mx >= x + w - 12) {
+                Waypoints.list().remove(wp);
+                buildLeft();
+            } else if (mx >= x + w - 28) {
+                wp.visible = !wp.visible;
+            }
+            return false;
+        }
+    }
+
+    private static final class Hint extends Item {
+        final String t;
+        Hint(String t) { this.t = t; h = 16; }
+        void draw(DrawContext c, int mx, int my) { Gfx.text(c, t, x, y + 4, 0x66FFFFFF); }
+    }
+
+    // ---------------- правая панель: эффекты, предикты, броня, метки ----------------
+
+    private void buildRight() {
+        Cfg.Data d = Cfg.D;
+        right.clear();
+        right.add(new Section("Potion HUD"));
+        right.add(feat("potionHud", "Эффекты на экране"));
+        right.add(new Section("Predictions"));
+        right.add(feat("predict", "Траектории и падение"));
+        right.add(feat("predictFlying", "Чужие жемчуга и стрелы"));
+        right.add(new Section("Броня"));
+        right.add(feat("armorOver", "Прочность над игроком"));
+        right.add(feat("armorWarn", "Предупреждение о поломке"));
+        right.add(new Slider("Порог предупреждения", 5, 50, 5, "%", () -> d.armorWarnPct, v -> d.armorWarnPct = v));
+        right.add(new Section("Метки"));
+        right.add(feat("wpEnabled", "Показывать метки"));
+        right.add(feat("wpDeath", "Метка смерти"));
+        right.add(new Slider("Дальность (0 — без лимита)", 0, 2000, 50, "", () -> d.wpMaxDist, v -> d.wpMaxDist = v));
+    }
+
+    // ---------------- геометрия панелей ----------------
+
+    private static float ease(float a) { return 1f - (1f - a) * (1f - a) * (1f - a); }
+
+    private int contentH(List<Item> list) {
+        int h = 40;
+        for (Item it : list) h += it.h + 2;
+        return h + 8;
+    }
+
+    private int[] box(boolean isLeft, List<Item> list) {
+        int dh = Math.min(height - 12, contentH(list));
+        int dy = Math.max(6, py + ph / 2 - dh / 2);
+        if (dy + dh > height - 6) dy = height - 6 - dh;
+        int finalX = isLeft ? px - DW - 6 : px + pw + 6;
+        if (isLeft && finalX < 4) finalX = 4;
+        if (!isLeft && finalX + DW > width - 4) finalX = width - 4 - DW;
+        float a = ease(isLeft ? leftA : rightA);
+        int startX = isLeft ? px : px + pw - DW;
+        int dx = Math.round(startX + (finalX - startX) * a);
+        return new int[]{dx, dy, DW, dh};
+    }
+
+    private void placeDrawer(List<Item> list, int[] b) {
+        int y = b[1] + 32;
+        for (Item it : list) {
+            it.x = b[0] + 12;
+            it.w = DW - 24;
+            it.y = y;
+            y += it.h + 2;
+        }
+    }
+
+    private void drawDrawer(DrawContext c, boolean isLeft, List<Item> list, String title, int mx, int my) {
+        float anim = isLeft ? leftA : rightA;
+        if (anim < 0.01f) return;
+        int[] b = box(isLeft, list);
+        boolean room = isLeft ? px - DW - 6 >= 4 : px + pw + 6 + DW <= width - 4;
+        if (room) {
+            if (isLeft) c.enableScissor(0, 0, px, height); else c.enableScissor(px + pw, 0, width, height);
+        }
+        Gfx.glass(c, b[0], b[1], b[2], b[3], 12, true);
+        Gfx.round(c, b[0] + 12, b[1] + 12, 6, 6, 3, Cfg.D.accent);
+        Gfx.shadow(c, title, b[0] + 24, b[1] + 11, 0xFFFFFFFF);
+        placeDrawer(list, b);
+        for (Item it : list) it.draw(c, mx, my);
+        if (room) c.disableScissor();
+    }
+
+    private int[] handle(boolean isLeft) {
+        int hh = 52;
+        return new int[]{isLeft ? px - 11 : px + pw, py + ph / 2 - hh / 2, 11, hh};
+    }
+
+    private void drawHandle(DrawContext c, boolean isLeft, int mx, int my) {
+        int[] h = handle(isLeft);
+        boolean open = isLeft ? leftOpen : rightOpen;
+        boolean hov = mx >= h[0] && mx < h[0] + h[2] && my >= h[1] && my < h[1] + h[3];
+        Gfx.round(c, h[0], h[1], h[2], h[3], 5, open ? Gfx.withAlpha(Cfg.D.accent, 200) : (hov ? 0x40FFFFFF : 0x26FFFFFF));
+        String s = isLeft == open ? ">" : "<";
+        Gfx.text(c, s, h[0] + (h[2] - Gfx.tw(s)) / 2, h[1] + h[3] / 2 - 4, 0xFFFFFFFF);
+    }
+
+    @Override
+    public void render(DrawContext c, int mx, int my, float delta) {
+        long now = System.nanoTime();
+        float dt = Math.min(0.1f, (now - lastNs) / 1e9f);
+        lastNs = now;
+        float k = Math.min(1f, dt * 9f);
+        leftA += ((leftOpen ? 1f : 0f) - leftA) * k;
+        rightA += ((rightOpen ? 1f : 0f) - rightA) * k;
+        if (Math.abs(leftA - (leftOpen ? 1f : 0f)) < 0.004f) leftA = leftOpen ? 1f : 0f;
+        if (Math.abs(rightA - (rightOpen ? 1f : 0f)) < 0.004f) rightA = rightOpen ? 1f : 0f;
+
+        super.render(c, mx, my, delta);
+        drawDrawer(c, true, left, "Метки", mx, my);
+        drawDrawer(c, false, right, "Эффекты и броня", mx, my);
+        drawHandle(c, true, mx, my);
+        drawHandle(c, false, mx, my);
     }
 
     private int tabX(int i) {
@@ -79,7 +276,19 @@ public final class MainScreen extends UiScreen {
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         int mx = (int) click.x(), my = (int) click.y();
-        if (click.button() == 0) {
+        int b = click.button();
+        if (b == 0) {
+            for (int side = 0; side < 2; side++) {
+                int[] h = handle(side == 0);
+                if (mx >= h[0] && mx < h[0] + h[2] && my >= h[1] && my < h[1] + h[3]) {
+                    if (side == 0) leftOpen = !leftOpen; else rightOpen = !rightOpen;
+                    return true;
+                }
+            }
+        }
+        if (leftA > 0.9f && handleDrawer(left, true, click)) return true;
+        if (rightA > 0.9f && handleDrawer(right, false, click)) return true;
+        if (b == 0) {
             for (int i = 0; i < TABS.length; i++) {
                 int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 22, by = py + 28;
                 if (mx >= bx && mx < bx + bw && my >= by && my < by + 16) {
@@ -95,5 +304,32 @@ public final class MainScreen extends UiScreen {
             }
         }
         return super.mouseClicked(click, doubled);
+    }
+
+    private boolean handleDrawer(List<Item> list, boolean isLeft, Click click) {
+        int mx = (int) click.x(), my = (int) click.y();
+        int[] bx = box(isLeft, list);
+        if (mx < bx[0] || mx >= bx[0] + bx[2] || my < bx[1] || my >= bx[1] + bx[3]) return false;
+        bindingIdReset();
+        TextBox.focused = null;
+        placeDrawer(list, bx);
+        clickItems(list, mx, my, click.button());
+        return true;
+    }
+
+    private void bindingIdReset() { bindingId = null; }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double hx, double vy) {
+        if (leftA > 0.9f) {
+            int[] b = box(true, left);
+            if (mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
+                int n = Waypoints.list().size();
+                int ns = Cfg.clamp(wpScroll + (vy < 0 ? 1 : -1), 0, Math.max(0, n - ROWS));
+                if (ns != wpScroll) { wpScroll = ns; buildLeft(); }
+                return true;
+            }
+        }
+        return super.mouseScrolled(mx, my, hx, vy);
     }
 }

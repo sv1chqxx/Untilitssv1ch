@@ -5,6 +5,10 @@ import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.Reader;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,6 +20,19 @@ import java.util.HexFormat;
 public final class Cfg {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     public static Data D = new Data();
+
+    /** Метка (waypoint). */
+    public static final class WP {
+        public String name = "Метка";
+        public int x, y, z;
+        public String dim = "minecraft:overworld";
+        public int color = 0x5B8CFF;
+        public boolean visible = true;
+        public WP() { }
+        public WP(String name, int x, int y, int z, String dim, int color) {
+            this.name = name; this.x = x; this.y = y; this.z = z; this.dim = dim; this.color = color;
+        }
+    }
 
     public static final class Data {
         // оформление
@@ -62,6 +79,32 @@ public final class Cfg {
         public int sysX = -1;
         public int sysY = 8;
 
+        public boolean kbHud = false;     // таблица включённых кейбиндов
+        public int kbX = -1;
+        public int kbY = 40;
+        public List<String> friends = new ArrayList<>();
+        public Map<String, Integer> binds = new LinkedHashMap<>();
+
+        public boolean trapTimer = false;
+        public int trapScale = 100;
+        public boolean zeroTcp = false;
+        public boolean zeroJump = false;
+        public boolean zeroAttack = false;
+        public boolean zeroRaycast = false;
+        public boolean zeroSnap = false;
+
+        // обычное меню: метки, эффекты, предсказания, броня
+        public boolean wpEnabled = true;
+        public boolean wpDeath = true;
+        public int wpMaxDist = 0;          // 0 = без ограничения
+        public List<WP> waypoints = new ArrayList<>();
+        public boolean potionHud = false;
+        public boolean predict = false;
+        public boolean predictFlying = true;
+        public boolean armorOver = false;
+        public boolean armorWarn = true;
+        public int armorWarnPct = 15;
+
         public String pass = "";
     }
 
@@ -95,6 +138,12 @@ public final class Cfg {
         D.freecamSpeed = clamp(D.freecamSpeed, 1, 30);
         D.nameRange = clamp(D.nameRange, 8, 512);
         D.hudCorner = clamp(D.hudCorner, 0, 3);
+        D.trapScale = clamp(D.trapScale, 40, 250);
+        if (D.friends == null) D.friends = new ArrayList<>();
+        if (D.binds == null) D.binds = new LinkedHashMap<>();
+        if (D.waypoints == null) D.waypoints = new ArrayList<>();
+        D.armorWarnPct = clamp(D.armorWarnPct, 5, 50);
+        D.wpMaxDist = clamp(D.wpMaxDist, 0, 5000);
         if (D.pass == null) D.pass = "";
     }
 

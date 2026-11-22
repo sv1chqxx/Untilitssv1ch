@@ -7,7 +7,7 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.Vec3d;
 
-/** NameTags: ники на любой дистанции, видны сквозь стены и у крадущихся; HP и предметы как на референсе. */
+/** NameTags: ники на любой дистанции, видны сквозь стены и у крадущихся. Слева — предмет в левой руке, друзья — зелёным. */
 public final class NameTags {
     private static final float[] P = new float[3];
     private static final EquipmentSlot[] SLOTS = {
@@ -17,37 +17,34 @@ public final class NameTags {
 
     public static void render(DrawContext c, MinecraftClient mc, float tp) {
         if (!Cfg.D.names || mc.world == null || mc.player == null) return;
-        double range = Cfg.D.nameRange;
+        double range = Cfg.D.nameRange, r2 = range * range;
         for (AbstractClientPlayerEntity p : mc.world.getPlayers()) {
             if (p == mc.player) continue;
-            double dist = Math.sqrt(p.squaredDistanceTo(mc.player));
-            if (dist > range) continue;
+            double d2 = p.squaredDistanceTo(mc.player);
+            if (d2 > r2) continue;
             Vec3d lp = p.getLerpedPos(tp);
             if (!Projector.project(lp.x, lp.y + p.getHeight() + 0.35, lp.z, P)) continue;
-            draw(c, p, P[0], P[1], (float) dist);
+            draw(c, p, P[0], P[1], (float) Math.sqrt(d2));
         }
     }
 
     private static void draw(DrawContext c, AbstractClientPlayerEntity p, float sx, float sy, float dist) {
         String name = p.getName().getString();
-        int hp = Math.round(p.getHealth() + p.getAbsorptionAmount());
-        String hpText = hp + "HP";
+        boolean friend = Friends.is(name);
+        String hpText = Math.round(p.getHealth() + p.getAbsorptionAmount()) + "HP";
+        boolean gear = Cfg.D.nameItems;
 
+        ItemStack off = gear ? p.getOffHandStack() : ItemStack.EMPTY;
+        boolean hasOff = !off.isEmpty();
         int items = 0;
-        ItemStack[] st = new ItemStack[SLOTS.length];
-        if (Cfg.D.nameItems) {
-            for (int i = 0; i < SLOTS.length; i++) {
-                st[i] = p.getEquippedStack(SLOTS[i]);
-                if (!st[i].isEmpty()) items++;
-            }
-        }
+        if (gear) for (EquipmentSlot s : SLOTS) if (!p.getEquippedStack(s).isEmpty()) items++;
 
         int h = 20, pad = 5, gap = 5;
-        int avatar = 12;
         int nameW = Gfx.tw(name);
         int hpW = Cfg.D.nameHp ? Gfx.tw(hpText) + 8 : 0;
         int itemsW = items * 17;
-        int w = pad + avatar + gap + nameW + (hpW > 0 ? gap + hpW : 0) + (itemsW > 0 ? gap + itemsW : 0) + pad;
+        int offW = hasOff ? 17 : 0;
+        int w = pad + (offW > 0 ? offW + gap - 1 : 0) + nameW + (hpW > 0 ? gap + hpW : 0) + (itemsW > 0 ? gap + itemsW : 0) + pad;
 
         float s = Math.max(0.55f, Math.min(1.0f, 1.15f - dist / 220f));
         var m = c.getMatrices();
@@ -58,12 +55,11 @@ public final class NameTags {
         int x = -w / 2, y = -h;
         Gfx.glass(c, x, y, w, h, 7, false);
         int cx = x + pad;
-        // «аватар»: квадрат цвета акцента с первой буквой
-        Gfx.round(c, cx, y + (h - avatar) / 2, avatar, avatar, 4, Cfg.D.accent);
-        String first = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase();
-        Gfx.text(c, first, cx + (avatar - Gfx.tw(first)) / 2 + 1, y + (h - 8) / 2, 0xFFFFFFFF);
-        cx += avatar + gap;
-        Gfx.shadow(c, name, cx, y + (h - 8) / 2, 0xFFFFFFFF);
+        if (hasOff) {                      // предмет в левой руке — на месте бывшей «буквы»
+            c.drawItem(off, cx, y + (h - 16) / 2);
+            cx += offW + gap - 1;
+        }
+        Gfx.shadow(c, name, cx, y + (h - 8) / 2, friend ? 0xFF55FF55 : 0xFFFFFFFF);
         cx += nameW;
         if (hpW > 0) {
             cx += gap;
@@ -73,9 +69,10 @@ public final class NameTags {
         }
         if (itemsW > 0) {
             cx += gap;
-            for (int i = 0; i < SLOTS.length; i++) {
-                if (st[i] == null || st[i].isEmpty()) continue;
-                c.drawItem(st[i], cx, y + (h - 16) / 2);
+            for (EquipmentSlot sl : SLOTS) {
+                ItemStack st = p.getEquippedStack(sl);
+                if (st.isEmpty()) continue;
+                c.drawItem(st, cx, y + (h - 16) / 2);
                 cx += 17;
             }
         }

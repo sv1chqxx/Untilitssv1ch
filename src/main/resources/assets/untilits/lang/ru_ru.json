@@ -1,5 +1,7 @@
 {
   "key.untilits.menu": "Открыть меню",
   "key.category.untilits.main": "Untilits",
-  "key.untilits.freecam": "Свободная камера"
+  "key.untilits.freecam": "Свободная камера",
+  "key.untilits.zoom": "Zoom (приближение)",
+  "key.untilits.freelook": "FreeLook (обзор)"
 }

@@ -9,12 +9,14 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public final class Untilits implements ClientModInitializer {
     private static KeyBinding menuKey;
+    private static boolean pDown;
 
     @Override
     public void onInitializeClient() {
@@ -27,6 +29,15 @@ public final class Untilits implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             HudModules.tick(mc);
             DamageFx.tick(mc);
+            boolean down = mc.getWindow() != null
+                    && InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_P);
+            boolean edge = down && !pDown;
+            pDown = down;
+            if (edge && mc.currentScreen != null
+                    && mc.currentScreen.getClass().getSimpleName().equals("SocialInteractionsScreen")) {
+                mc.setScreen(null);
+            }
+            if (edge && mc.currentScreen == null && mc.world != null) mc.setScreen(new MainScreen());
             while (menuKey.wasPressed()) {
                 // P в ваниле открывает «Социальные взаимодействия» — перехватываем и их
                 boolean free = mc.currentScreen == null

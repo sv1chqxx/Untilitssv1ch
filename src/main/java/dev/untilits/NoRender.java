@@ -10,7 +10,7 @@ import net.minecraft.client.MinecraftClient;
 
 /** NoRender (убрать лишние эффекты) и Optimizations (отсечение сущностей). Флаги — битовые маски в конфиге. */
 public final class NoRender {
-    public static final int SCOREBOARD = 0, BOSSBAR = 1, TITLES = 2, VIGNETTE = 3, PORTAL = 4, TOTEM = 5, FIRE = 6, WATER = 7, WEATHER = 8;
+    public static final int SCOREBOARD = 0, BOSSBAR = 1, TITLES = 2, VIGNETTE = 3, PORTAL = 4, TOTEM = 5, FIRE = 6, WATER = 7, WEATHER = 8, SMOKE = 9, BREAK = 10, ARROWS = 11, PGLOW = 12;
     public static final int O_ITEMS = 0, O_XP = 1, O_STANDS = 2, O_FRAMES = 3, O_PROJ = 4;
 
     private NoRender() { }

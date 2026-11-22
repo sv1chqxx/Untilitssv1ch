@@ -70,6 +70,7 @@ public final class Untilits implements ClientModInitializer {
                     float tp = tickCounter.getTickProgress(false);
                     HudModules.render(ctx, mc);
                     PotionHud.render(ctx, mc);
+                    VisualFx.renderRain(ctx, mc);
                     VisualFx.render(ctx, mc);
                     TargetEsp.renderInfo(ctx, mc);
                     ArmorWatch.renderWarning(ctx, mc);
@@ -77,6 +78,7 @@ public final class Untilits implements ClientModInitializer {
                         DamageFx.render(ctx, mc, tp);
                         Predictions.render(ctx, mc, tp);
                         TargetEsp.render(ctx, mc, tp);
+                        VisualFx.renderWorld(ctx, mc, tp);
                         Tracers.render(ctx, mc, tp);
                         ChestEsp.render(ctx, mc, tp);
                         Waypoints.render(ctx, mc);
@@ -86,6 +88,7 @@ public final class Untilits implements ClientModInitializer {
                     }
                     SysHud.render(ctx, mc);
                     KeybindsHud.render(ctx, mc);
+                    Notif.render(ctx, mc);
                 });
 
         // .password set <1-4 цифры> — обрабатывается локально и в чат НЕ отправляется

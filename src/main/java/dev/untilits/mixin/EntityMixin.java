@@ -14,7 +14,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class EntityMixin {
     @Inject(method = "isGlowing", at = @At("HEAD"), cancellable = true, require = 0)
     private void untilits$glow(CallbackInfoReturnable<Boolean> cir) {
-        if (Esp.shouldGlow((Entity) (Object) this)) cir.setReturnValue(true);
+        Entity self = (Entity) (Object) this;
+        if (Esp.shouldGlow(self)) cir.setReturnValue(true);
+        else if (dev.untilits.NoRender.nr(dev.untilits.NoRender.PGLOW) && self instanceof net.minecraft.entity.player.PlayerEntity) cir.setReturnValue(false);
     }
 
     @Inject(method = "getTeamColorValue", at = @At("HEAD"), cancellable = true, require = 0)

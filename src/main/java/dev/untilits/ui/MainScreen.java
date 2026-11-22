@@ -24,6 +24,7 @@ public final class MainScreen extends UiScreen {
     private static final int ROWS = 5;       // строк меток на экране
     private static int tab = 0;
     private static int optPage = 0;
+    private static int visPage = 0;
     private static final String[] OPT_PAGES = {"NoRender: интерфейс", "NoRender: мир", "Оптимизация"};
     private static boolean leftOpen, rightOpen;
     private static int wpScroll;
@@ -74,16 +75,21 @@ public final class MainScreen extends UiScreen {
                 items.add(new Slider("Количество крови", 25, 300, 25, "%", () -> d.bloodAmount, v -> d.bloodAmount = v));
             }
             case 2 -> {
-                items.add(new Section("Ambience"));
-                items.add(feat("ambOn", "Включить Ambience"));
-                items.add(new Cycle("Погода", () -> VisualFx.WEATHER[d.ambWeather], () -> d.ambWeather = (d.ambWeather + 1) % 4));
-                items.add(feat("ambTimeLock", "Зафиксировать время"));
-                items.add(new Slider("Время суток", 0, 24000, 500, "", () -> d.ambTime, v -> d.ambTime = v));
-                items.add(new Section("Утилиты"));
-                items.add(feat("fastExp", "FastEXP (бутылки опыта без задержки)"));
-                items.add(feat("cdOn", "Cooldowns (зелье лечения)"));
-                items.add(feat("killFx", "Kill Effects"));
-                items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 3));
+                items.add(new Cycle("Раздел", () -> visPage == 0 ? "Ambience" : "Утилиты", () -> { visPage = 1 - visPage; build(); }));
+                if (visPage == 0) {
+                    items.add(feat("ambOn", "Включить Ambience"));
+                    items.add(new Cycle("Погода", () -> VisualFx.WEATHER[d.ambWeather], () -> d.ambWeather = (d.ambWeather + 1) % 4));
+                    items.add(feat("ambTimeLock", "Зафиксировать время"));
+                    items.add(new Slider("Время суток", 0, 24000, 500, "", () -> d.ambTime, v -> d.ambTime = v));
+                    items.add(feat("ambRain", "Дождь-оверлей на экране"));
+                    items.add(new Slider("Плотность дождя", 20, 300, 20, "%", () -> d.rainDensity, v -> d.rainDensity = v));
+                } else {
+                    items.add(feat("notif", "Уведомления (вкл/выкл функций)"));
+                    items.add(feat("fastExp", "FastEXP (бутылки опыта без задержки)"));
+                    items.add(feat("cdOn", "Cooldowns (зелье лечения)"));
+                    items.add(feat("killFx", "Kill Effects"));
+                    items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 4));
+                }
             }
             case 3 -> {
                 items.add(new Section("Эффект вокруг цели"));
@@ -108,6 +114,10 @@ public final class MainScreen extends UiScreen {
                     items.add(nr("Убрать огонь на экране", NoRender.FIRE));
                     items.add(nr("Убрать размытие под водой", NoRender.WATER));
                     items.add(nr("Убрать дождь и снег", NoRender.WEATHER));
+                    items.add(nr("Убрать дым", NoRender.SMOKE));
+                    items.add(nr("Убрать частицы ломания блоков", NoRender.BREAK));
+                    items.add(nr("Убрать стрелы в игроках", NoRender.ARROWS));
+                    items.add(nr("Убрать свечение игроков", NoRender.PGLOW));
                 } else {
                     items.add(opt("Не рисовать предметы на земле", NoRender.O_ITEMS));
                     items.add(opt("Не рисовать шары опыта", NoRender.O_XP));

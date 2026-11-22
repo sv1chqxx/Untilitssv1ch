@@ -28,7 +28,7 @@ public final class Binds {
             prev.put(key, down);
             if (down && !was && canFire) {
                 Features.F f = Features.ALL.get(e.getKey());
-                if (f != null) f.set().accept(!f.get().getAsBoolean());
+                if (f != null) { boolean nv = !f.get().getAsBoolean(); f.set().accept(nv); Notif.push(f.label() + (nv ? ": ВКЛ" : ": ВЫКЛ"), nv); }
             }
         }
     }

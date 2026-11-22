@@ -37,6 +37,8 @@ public final class Features {
         reg("tgtEsp", "Target ESP", () -> Cfg.D.tgtEsp, v -> Cfg.D.tgtEsp = v);
         reg("tgtFlash", "Target ESP: вспышка при ударе", () -> Cfg.D.tgtFlash, v -> Cfg.D.tgtFlash = v);
         reg("tgtInfo", "Карточка цели", () -> Cfg.D.tgtInfo, v -> Cfg.D.tgtInfo = v);
+        reg("ambRain", "Дождь-оверлей", () -> Cfg.D.ambRain, v -> Cfg.D.ambRain = v);
+        reg("notif", "Уведомления", () -> Cfg.D.notif, v -> Cfg.D.notif = v);
         reg("ambOn", "Ambience", () -> Cfg.D.ambOn, v -> Cfg.D.ambOn = v);
         reg("ambTimeLock", "Ambience: фикс. время", () -> Cfg.D.ambTimeLock, v -> Cfg.D.ambTimeLock = v);
         reg("fastExp", "FastEXP", () -> Cfg.D.fastExp, v -> Cfg.D.fastExp = v);

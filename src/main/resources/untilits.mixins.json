@@ -12,6 +12,8 @@
     "MinecraftClientMixin",
     "LivingEntityMixin",
     "NrHudMixin",
+    "NrParticleMixin",
+    "NrStuckMixin",
     "NrOverlayMixin",
     "NrGameRendererMixin",
     "NrWorldRendererMixin",

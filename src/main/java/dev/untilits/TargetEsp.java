@@ -13,7 +13,7 @@ public final class TargetEsp {
     public static final String[] MODES = {"Маркер", "Круг", "Призраки", "Кристаллы", "Спираль", "Сакура", "Молнии"};
     public static final String[] SKINS = {"Классика", "Прицел", "Звезда", "Кольцо"};
     private static final String[] SKIN_TEX = {"marker0", "marker1", "marker2", "marker3"};
-    private static final float[] P = new float[3], Q = new float[3];
+    static final float[] P = new float[3], Q = new float[3];
 
     public static LivingEntity target;
     private static long seen;
@@ -37,7 +37,7 @@ public final class TargetEsp {
     }
 
     /** Спрайт с центром в (x,y), размером s пикселей, поворотом rot. */
-    private static void spr(DrawContext c, String name, float x, float y, float s, float rot, int color) {
+    static void spr(DrawContext c, String name, float x, float y, float s, float rot, int color) {
         if (s < 2f) return;
         var m = c.getMatrices();
         m.pushMatrix();
@@ -49,7 +49,7 @@ public final class TargetEsp {
         m.popMatrix();
     }
 
-    private static void seg(DrawContext c, float x0, float y0, float x1, float y1, int col) {
+    static void seg(DrawContext c, float x0, float y0, float x1, float y1, int col) {
         float dx = x1 - x0, dy = y1 - y0;
         float len = (float) Math.sqrt(dx * dx + dy * dy);
         if (len < 0.5f || len > 600f) return;

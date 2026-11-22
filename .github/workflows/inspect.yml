@@ -17,8 +17,9 @@ jobs:
       - name: javap
         run: |
           mkdir -p inspect
-          J=$(find / -name "*.jar" -path "*loom-cache*" ! -name "*sources*" 2>/dev/null | grep -i "minecraft" | grep -iv "fabric-api" | head -20)
-          echo "$J" > inspect/jars.txt
+          J=$(find /home/runner/.gradle "$GITHUB_WORKSPACE/.gradle" -name "*.jar" ! -name "*sources*" 2>/dev/null | grep -E "minecraft" | grep -E "merged|mapped|yarn|named" || true)
+          find /home/runner/.gradle "$GITHUB_WORKSPACE/.gradle" -name "*.jar" 2>/dev/null | grep -i -E "minecraft|loom" | head -40 > inspect/alljars.txt || true
+          echo "$J" > inspect/jars.txt || true
           for jar in $J; do
             for c in net.minecraft.client.render.Camera net.minecraft.client.input.KeyboardInput net.minecraft.client.input.Input net.minecraft.util.PlayerInput net.minecraft.client.Mouse; do
               javap -p -cp "$jar" $c >> inspect/out.txt 2>/dev/null && echo "== from $jar" >> inspect/out.txt

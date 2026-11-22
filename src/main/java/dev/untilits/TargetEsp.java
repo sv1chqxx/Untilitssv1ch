@@ -10,7 +10,7 @@ import net.minecraft.util.math.Vec3d;
 
 /** Эффекты вокруг цели (по мотивам TargetESP): маркер, круг, призраки, кристаллы, спираль. Рисуется в 2D по проекции. */
 public final class TargetEsp {
-    public static final String[] MODES = {"Маркер", "Круг", "Призраки", "Кристаллы", "Спираль"};
+    public static final String[] MODES = {"Маркер", "Круг", "Призраки", "Кристаллы", "Спираль", "Сакура", "Молнии"};
     public static final String[] SKINS = {"Классика", "Прицел", "Звезда", "Кольцо"};
     private static final String[] SKIN_TEX = {"marker0", "marker1", "marker2", "marker3"};
     private static final float[] P = new float[3], Q = new float[3];
@@ -145,6 +145,41 @@ public final class TargetEsp {
                     m.popMatrix();
                 }
             }
+            case 5 -> {
+                int n = 26;
+                for (int i = 0; i < n; i++) {
+                    float ph = (time * 0.3f + i / (float) n) % 1f;
+                    double ang = i * 2.4 + time * 0.9;
+                    double r = (w * 0.7 + 0.25 + 0.3 * (0.5 + 0.5 * Math.sin(i * 1.7 + time))) * size;
+                    double yy = p.y + h + 0.3 - ph * (h + 0.5);
+                    if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
+                    float ppb = pxPerBlock(p.x, yy, p.z);
+                    float al = (float) Math.sin(ph * Math.PI);
+                    spr(c, "petal", P[0], P[1], ppb * 0.22f * size, time * 2f + i, Gfx.withAlpha(Gfx.lerp(0xFFFFFFFF, Gfx.hsv(d.tgtHue / 360f, 0.5f, 1f), 0.5f), (int) (a * al)));
+                }
+            }
+            case 6 -> {
+                long seed = (long) (time * 9f);
+                for (int b = 0; b < 3; b++) {
+                    java.util.Random rnd = new java.util.Random(seed * 31 + b * 977);
+                    double ox = (rnd.nextDouble() - .5) * 1.6 * size, oz = (rnd.nextDouble() - .5) * 1.6 * size;
+                    double x0 = p.x + ox, z0 = p.z + oz, y0 = p.y + h + 1.6;
+                    float lx = 0, ly = 0;
+                    boolean prev = false;
+                    int segs = 7;
+                    for (int k = 0; k <= segs; k++) {
+                        double f = k / (double) segs;
+                        double jx = k == segs ? 0 : (rnd.nextDouble() - .5) * 0.5, jz = k == segs ? 0 : (rnd.nextDouble() - .5) * 0.5;
+                        double xx = x0 + (p.x - x0) * f + jx, zz = z0 + (p.z - z0) * f + jz, yy = y0 + (p.y - y0) * f;
+                        boolean ok = Projector.project(xx, yy, zz, P);
+                        if (ok && prev) {
+                            seg(c, lx, ly, P[0], P[1], Gfx.withAlpha(col(0, 255), a / 3));
+                            seg(c, lx + 1, ly, P[0] + 1, P[1], Gfx.withAlpha(0xFFFFFF, a));
+                        }
+                        lx = P[0]; ly = P[1]; prev = ok;
+                    }
+                }
+            }
             default -> {
                 double r = (w * 0.7 + 0.2) * size;
                 for (int s2 = 0; s2 < 2; s2++) {
@@ -163,4 +198,23 @@ public final class TargetEsp {
     }
 
     public static boolean isPlayer(LivingEntity e) { return e instanceof PlayerEntity; }
+
+    /** Карточка цели: ник, HP-полоса. */
+    public static void renderInfo(DrawContext c, MinecraftClient mc) {
+        if (!Cfg.D.tgtInfo || target == null) return;
+        LivingEntity t = target;
+        int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
+        int w = 120, h = 34, x = sw / 2 + 40, y = sh / 2 + 28;
+        Gfx.glass(c, x, y, w, h, 9, true);
+        String n = t.getName().getString();
+        while (n.length() > 3 && Gfx.tw(n) > w - 20) n = n.substring(0, n.length() - 1);
+        Gfx.text(c, n, x + 10, y + 7, Friends.is(n) ? 0xFF55FF55 : Gfx.TEXT);
+        float hp = Math.max(0, t.getHealth()), mx = Math.max(1, t.getMaxHealth());
+        String s = String.format("%.1f", hp);
+        Gfx.text(c, s, x + w - 10 - Gfx.tw(s), y + 7, Gfx.DIM);
+        int bw = w - 20;
+        Gfx.round(c, x + 10, y + 21, bw, 5, 2, 0x33FFFFFF);
+        float f = Math.min(1f, hp / mx);
+        Gfx.round(c, x + 10, y + 21, Math.max(3, (int) (bw * f)), 5, 2, Gfx.lerp(0xFFFF4D4D, 0xFF4DFF88, f));
+    }
 }

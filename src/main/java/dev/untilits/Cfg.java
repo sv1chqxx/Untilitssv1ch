@@ -104,7 +104,8 @@ public final class Cfg {
         public boolean armorOver = false;
         public boolean armorWarn = true;
         public int armorWarnPct = 15;
-        public boolean tgtEsp;
+        public boolean tgtEsp, tgtInfo;
+        public int nrMask, optMask, optDist;
         public int tgtMode, tgtSkin, tgtSize = 100, tgtHue = 265;
         public boolean tgtFlash = true;
         public boolean ambOn, ambTimeLock;
@@ -143,7 +144,8 @@ public final class Cfg {
         D.bloodAmount = clamp(D.bloodAmount, 10, 300);
         D.espRange = clamp(D.espRange, 8, 512);
         D.tracerRange = clamp(D.tracerRange, 8, 512);
-        D.tgtMode = clamp(D.tgtMode, 0, 4);
+        D.tgtMode = clamp(D.tgtMode, 0, 6);
+        D.optDist = clamp(D.optDist, 0, 256);
         D.tgtSkin = clamp(D.tgtSkin, 0, 3);
         D.tgtSize = clamp(D.tgtSize, 40, 250);
         D.tgtHue = clamp(D.tgtHue, 0, 360);

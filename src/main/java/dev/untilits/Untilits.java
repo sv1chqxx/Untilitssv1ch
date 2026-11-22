@@ -71,6 +71,7 @@ public final class Untilits implements ClientModInitializer {
                     HudModules.render(ctx, mc);
                     PotionHud.render(ctx, mc);
                     VisualFx.render(ctx, mc);
+                    TargetEsp.renderInfo(ctx, mc);
                     ArmorWatch.renderWarning(ctx, mc);
                     if (Projector.setup(mc, tp, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight())) {
                         DamageFx.render(ctx, mc, tp);

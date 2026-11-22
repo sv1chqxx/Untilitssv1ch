@@ -10,7 +10,12 @@
     "GameRendererAccessor",
     "ClientConnectionMixin",
     "MinecraftClientMixin",
-    "LivingEntityMixin"
+    "LivingEntityMixin",
+    "NrHudMixin",
+    "NrOverlayMixin",
+    "NrGameRendererMixin",
+    "NrWorldRendererMixin",
+    "NrEntityCullMixin"
   ],
   "injectors": { "defaultRequire": 0 }
 }

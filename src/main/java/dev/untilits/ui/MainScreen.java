@@ -2,6 +2,7 @@ package dev.untilits.ui;
 
 import dev.untilits.Cfg;
 import dev.untilits.Gfx;
+import dev.untilits.NoRender;
 import dev.untilits.TargetEsp;
 import dev.untilits.VisualFx;
 import dev.untilits.Waypoints;
@@ -17,11 +18,13 @@ import java.util.List;
  * Внизу справа — еле заметный круг, ведущий к вводу кода.
  */
 public final class MainScreen extends UiScreen {
-    private static final String[] TABS = {"HUD", "Эффекты", "Визуал", "Таргет ESP", "Цвета"};
+    private static final String[] TABS = {"HUD", "Эффекты", "Визуал", "Таргет ESP", "Оптим.", "Цвета"};
     private static final String[] CORNERS = {"Лево-верх", "Право-верх", "Лево-низ", "Право-низ"};
     private static final int DW = 184;       // ширина боковой панели
     private static final int ROWS = 5;       // строк меток на экране
     private static int tab = 0;
+    private static int optPage = 0;
+    private static final String[] OPT_PAGES = {"NoRender: интерфейс", "NoRender: мир", "Оптимизация"};
     private static boolean leftOpen, rightOpen;
     private static int wpScroll;
 
@@ -44,6 +47,10 @@ public final class MainScreen extends UiScreen {
     }
 
     // ---------------- основная панель ----------------
+
+    private Toggle nr(String label, int bit) { return new Toggle(label, () -> NoRender.nr(bit), v -> NoRender.setNr(bit, v)); }
+
+    private Toggle opt(String label, int bit) { return new Toggle(label, () -> NoRender.opt(bit), v -> NoRender.setOpt(bit, v)); }
 
     private void build() {
         items.clear();
@@ -86,6 +93,29 @@ public final class MainScreen extends UiScreen {
                 items.add(new Slider("Размер", 40, 250, 10, "%", () -> d.tgtSize, v -> d.tgtSize = v));
                 items.add(new Slider("Цвет (оттенок)", 0, 360, 10, "°", () -> d.tgtHue, v -> d.tgtHue = v));
                 items.add(feat("tgtFlash", "Красная вспышка при ударе"));
+                items.add(feat("tgtInfo", "Карточка цели (ник, HP)"));
+            }
+            case 4 -> {
+                items.add(new Cycle("Раздел", () -> OPT_PAGES[optPage], () -> { optPage = (optPage + 1) % 3; build(); }));
+                if (optPage == 0) {
+                    items.add(nr("Убрать скорборд", NoRender.SCOREBOARD));
+                    items.add(nr("Убрать боссбар", NoRender.BOSSBAR));
+                    items.add(nr("Убрать титры", NoRender.TITLES));
+                    items.add(nr("Убрать виньетку", NoRender.VIGNETTE));
+                    items.add(nr("Убрать эффект портала", NoRender.PORTAL));
+                    items.add(nr("Убрать анимацию тотема", NoRender.TOTEM));
+                } else if (optPage == 1) {
+                    items.add(nr("Убрать огонь на экране", NoRender.FIRE));
+                    items.add(nr("Убрать размытие под водой", NoRender.WATER));
+                    items.add(nr("Убрать дождь и снег", NoRender.WEATHER));
+                } else {
+                    items.add(opt("Не рисовать предметы на земле", NoRender.O_ITEMS));
+                    items.add(opt("Не рисовать шары опыта", NoRender.O_XP));
+                    items.add(opt("Не рисовать стойки для брони", NoRender.O_STANDS));
+                    items.add(opt("Не рисовать рамки", NoRender.O_FRAMES));
+                    items.add(opt("Не рисовать далёкие снаряды", NoRender.O_PROJ));
+                    items.add(new Slider("Дальность сущностей (0 — всё)", 0, 256, 16, "", () -> d.optDist, v -> d.optDist = v));
+                }
             }
             default -> {
                 int[] acc = {0x5B8CFF, 0x45D0FF, 0x37E0A8, 0xB78CFF, 0xFF7AC8, 0xFF6B6B, 0xFFB454, 0xF2F4FA};

@@ -15,19 +15,4 @@ jobs:
         with: { gradle-version: '9.2.0' }
       - run: gradle build
       - name: javap
-        run: |
-          mkdir -p inspect
-          J=$(find /home/runner/.gradle "$GITHUB_WORKSPACE/.gradle" -name "*.jar" ! -name "*sources*" 2>/dev/null | grep -E "minecraft" | grep -E "merged|mapped|yarn|named" || true)
-          find /home/runner/.gradle "$GITHUB_WORKSPACE/.gradle" -name "*.jar" 2>/dev/null | grep -i -E "minecraft|loom" | head -40 > inspect/alljars.txt || true
-          echo "$J" > inspect/jars.txt || true
-          for jar in $J; do
-            for c in net.minecraft.client.render.Camera net.minecraft.client.input.KeyboardInput net.minecraft.client.input.Input net.minecraft.util.PlayerInput net.minecraft.client.Mouse; do
-              javap -p -cp "$jar" $c >> inspect/out.txt 2>/dev/null && echo "== from $jar" >> inspect/out.txt
-            done
-            javap -p -cp "$jar" net.minecraft.entity.Entity 2>/dev/null | grep -E "changeLookDirection|getLerpedPos" >> inspect/out.txt
-            javap -p -cp "$jar" net.minecraft.client.network.ClientPlayerEntity 2>/dev/null | grep -E "tickMovement|changeLook" >> inspect/out.txt
-            javap -p -cp "$jar" net.minecraft.world.chunk.WorldChunk 2>/dev/null | grep -E "getBlockEntities" >> inspect/out.txt
-            javap -p -cp "$jar" net.minecraft.client.world.ClientChunkManager 2>/dev/null | grep -E "getChunk|getWorldChunk" >> inspect/out.txt
-            javap -p -cp "$jar" net.minecraft.client.render.entity.EntityRenderDispatcher 2>/dev/null | grep -E "shouldRender|render\(" >> inspect/out.txt
-          done
-          echo ====ALLJARS; cat inspect/alljars.txt; echo ====JARS; cat inspect/jars.txt; echo ====OUT; cat inspect/out.txt
+        run: bash +e inspect.sh 2>&1 | head -400; true

@@ -30,7 +30,18 @@ public final class Projector {
         uy = rz * fx - rx * fz;
         uz = rx * fy - ry * fx;
         px = pos.x; py = pos.y + eye; pz = pos.z;
-        if (pers != Perspective.FIRST_PERSON) {
+        if (Freecam.active) {
+            Vec3d fp = Freecam.pos(tp);
+            px = fp.x; py = fp.y; pz = fp.z;
+            yr = Math.toRadians(Freecam.yaw); pr = Math.toRadians(Freecam.pitch);
+            fx = -Math.sin(yr) * Math.cos(pr);
+            fy = -Math.sin(pr);
+            fz = Math.cos(yr) * Math.cos(pr);
+            rx = -Math.cos(yr); ry = 0; rz = -Math.sin(yr);
+            ux = ry * fz - rz * fy;
+            uy = rz * fx - rx * fz;
+            uz = rx * fy - ry * fx;
+        } else if (pers != Perspective.FIRST_PERSON) {
             double back = 4.0;
             px -= fx * back; py -= fy * back; pz -= fz * back;
         }

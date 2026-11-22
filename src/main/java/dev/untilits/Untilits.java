@@ -16,6 +16,7 @@ import org.lwjgl.glfw.GLFW;
 
 public final class Untilits implements ClientModInitializer {
     private static KeyBinding menuKey;
+    private static KeyBinding freecamKey;
     private static boolean pDown;
 
     @Override
@@ -26,9 +27,16 @@ public final class Untilits implements ClientModInitializer {
                 "key.untilits.menu", GLFW.GLFW_KEY_P,
                 KeyBinding.Category.create(Identifier.of("untilits", "main"))));
 
+        freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.untilits.freecam", GLFW.GLFW_KEY_V,
+                KeyBinding.Category.create(Identifier.of("untilits", "main"))));
+
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             HudModules.tick(mc);
             DamageFx.tick(mc);
+            ChestEsp.tick(mc);
+            Freecam.tick(mc);
+            while (freecamKey.wasPressed()) { if (mc.world != null) Freecam.set(!Freecam.active); }
             boolean down = mc.getWindow() != null
                     && InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_P);
             boolean edge = down && !pDown;
@@ -55,6 +63,7 @@ public final class Untilits implements ClientModInitializer {
                     if (Projector.setup(mc, tp, ctx.getScaledWindowWidth(), ctx.getScaledWindowHeight())) {
                         DamageFx.render(ctx, mc, tp);
                         Tracers.render(ctx, mc, tp);
+                        ChestEsp.render(ctx, mc, tp);
                         NameTags.render(ctx, mc, tp);
                     }
                     SysHud.render(ctx, mc);

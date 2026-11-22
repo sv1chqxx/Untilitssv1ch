@@ -4,6 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "EntityMixin",
+    "CameraMixin",
+    "KeyboardInputMixin",
     "NetworkMixin"
   ],
   "injectors": { "defaultRequire": 0 }

@@ -25,11 +25,11 @@ public final class Tracers {
             if (e.squaredDistanceTo(mc.player) > r2) continue;
             Vec3d lp = e.getLerpedPos(tp);
             if (!Projector.project(lp.x, lp.y + e.getHeight() * 0.5, lp.z, P)) continue;
-            line(c, sw / 2, sh, Math.round(P[0]), Math.round(P[1]), 0xE0000000 | Esp.colorOf(k), sw, sh);
+            line(c, sw / 2, sh, Math.round(P[0]), Math.round(P[1]), 0xE0000000 | Esp.color(e), sw, sh);
         }
     }
 
-    private static void line(DrawContext c, int x0, int y0, int x1, int y1, int col, int sw, int sh) {
+    public static void line(DrawContext c, int x0, int y0, int x1, int y1, int col, int sw, int sh) {
         int dx = x1 - x0, dy = y1 - y0;
         int steps = Math.min(4000, Math.max(Math.abs(dx), Math.abs(dy)));
         if (steps == 0) return;

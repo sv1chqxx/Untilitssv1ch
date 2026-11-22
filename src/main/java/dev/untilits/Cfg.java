@@ -41,6 +41,12 @@ public final class Cfg {
         // скрытое меню
         public boolean esp = false;
         public int espRange = 128;
+        public boolean weak = false;      // подсветка слабых мест (игроки с низким HP)
+        public int weakHp = 8;
+        public boolean chestEsp = false;
+        public int chestRange = 64;
+        public boolean chestSpawners = false;
+        public int freecamSpeed = 5;
         public boolean espMobs = false;
         public boolean espItems = false;
         public boolean tracers = false;
@@ -83,6 +89,9 @@ public final class Cfg {
         D.bloodAmount = clamp(D.bloodAmount, 10, 300);
         D.espRange = clamp(D.espRange, 8, 512);
         D.tracerRange = clamp(D.tracerRange, 8, 512);
+        D.weakHp = clamp(D.weakHp, 1, 20);
+        D.chestRange = clamp(D.chestRange, 8, 128);
+        D.freecamSpeed = clamp(D.freecamSpeed, 1, 30);
         D.nameRange = clamp(D.nameRange, 8, 512);
         D.hudCorner = clamp(D.hudCorner, 0, 3);
         if (D.pass == null) D.pass = "";

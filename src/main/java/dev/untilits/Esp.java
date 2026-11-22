@@ -22,6 +22,15 @@ public final class Esp {
         return 0;
     }
 
+    public static final int WEAK = 0xFFFF7A1A;
+
+    public static boolean isWeak(Entity e) {
+        if (!Cfg.D.weak || !(e instanceof AbstractClientPlayerEntity p)) return false;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null || e == mc.player) return false;
+        return p.getHealth() + p.getAbsorptionAmount() <= Cfg.D.weakHp;
+    }
+
     public static int colorOf(int kind) {
         return switch (kind) {
             case 2 -> HOSTILE;
@@ -35,6 +44,8 @@ public final class Esp {
         Cfg.Data d = Cfg.D;
         int k = kind(e);
         if (k == 0) return false;
+        MinecraftClient mc0 = MinecraftClient.getInstance();
+        if (isWeak(e) && mc0.player != null && e.squaredDistanceTo(mc0.player) <= (double) d.espRange * d.espRange) return true;
         boolean on = switch (k) {
             case 1 -> d.esp;
             case 2, 3 -> d.espMobs;
@@ -47,5 +58,5 @@ public final class Esp {
         return e.squaredDistanceTo(mc.player) <= r * r;
     }
 
-    public static int color(Entity e) { return colorOf(kind(e)); }
+    public static int color(Entity e) { return isWeak(e) ? (WEAK & 0xFFFFFF) : colorOf(kind(e)); }
 }

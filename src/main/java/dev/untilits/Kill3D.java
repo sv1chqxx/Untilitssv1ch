@@ -24,6 +24,33 @@ public final class Kill3D {
         SCENES.add(new Scene(bus, x, y, z, yaw, System.currentTimeMillis(), dur, System.nanoTime() & 0xFFFF));
     }
 
+    /** Поза камеры дрона {x,y,z,yawDeg,pitchDeg} или null, если камера дрона не активна. */
+    public static double[] camPose() {
+        if (!Cfg.D.killCam || !Cfg.D.killFx) return null;
+        long now = System.currentTimeMillis();
+        for (Scene s : SCENES) {
+            if (s.bus || now - s.start > s.dur) continue;
+            double D = s.dur / 1000.0, flight = D * 0.72;
+            double t = Math.min((now - s.start) / 1000.0, flight - 0.01);
+            double[] p = dronePos(s, t), q = dronePos(s, t + 0.05);
+            double dx = q[0] - p[0], dy = q[1] - p[1], dz = q[2] - p[2];
+            // смотрим на цель, чуть смещаясь по курсу полёта
+            double tx = s.x - p[0], ty = s.y + 1.0 - p[1], tz = s.z - p[2];
+            double h = Math.sqrt(tx * tx + tz * tz);
+            return new double[]{p[0], p[1], p[2], Math.toDegrees(Math.atan2(-tx, tz)), Math.toDegrees(-Math.atan2(ty, h))};
+        }
+        return null;
+    }
+
+    private static double[] dronePos(Scene s, double t) {
+        double flight = s.dur / 1000.0 * 0.72;
+        java.util.Random rnd = new java.util.Random(s.seed);
+        double ang = rnd.nextDouble() * Math.PI * 2;
+        double sx = s.x + Math.cos(ang) * 26, sz = s.z + Math.sin(ang) * 26, sy = s.y + 12;
+        double u = Math.min(1.0, t / flight), e = Math.pow(u, 1.55), wob = (1 - u) * 0.9;
+        return new double[]{lerp(sx, s.x, e) + Math.sin(u * 11) * wob * Math.cos(ang + 1.57), lerp(sy, s.y + 1.0, e) + Math.sin(u * 9 + 1) * wob * 0.5, lerp(sz, s.z, e) + Math.sin(u * 11) * wob * Math.sin(ang + 1.57)};
+    }
+
     public static void clear() { SCENES.clear(); }
 
     // ======================================================= меш / полигоны
@@ -270,6 +297,7 @@ public final class Kill3D {
         double pitch = -Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * 0.6 + 0.35;
         double roll = Math.sin(t * 5) * 0.1;
         if (t < flight) {
+            if (Cfg.D.killCam) { osd(c, t, flight); return; }
             Mesh m = new Mesh();
             double S = 2.4;
             Frame f = new Frame(px, py, pz, yaw, pitch);
@@ -313,6 +341,22 @@ public final class Kill3D {
             explosion2d(c, tx, ty, tz, et, s.seed);
         }
         if (t >= flight + 1.4) boomed = false;
+    }
+
+    /** Экранный интерфейс дрона (вид от первого лица). */
+    private static void osd(DrawContext c, double t, double flight) {
+        int w = c.getScaledWindowWidth(), h = c.getScaledWindowHeight();
+        int col = 0xFFFF3B30;
+        c.fill(0, 0, w, 14, 0x99000000);
+        c.fill(0, h - 14, w, h, 0x99000000);
+        if ((int) (t * 2) % 2 == 0) Gfx.round(c, 10, 4, 6, 6, 3, col);
+        Gfx.text(c, "FPV  REC", 22, 3, Gfx.TEXT);
+        Gfx.text(c, String.format("ALT %.0f м", Math.max(0, 12 * (1 - t / flight))), w - 70, 3, Gfx.TEXT);
+        int cx = w / 2, cy = h / 2;
+        c.fill(cx - 8, cy, cx - 2, cy + 1, 0xCCFFFFFF);
+        c.fill(cx + 2, cy, cx + 8, cy + 1, 0xCCFFFFFF);
+        c.fill(cx, cy - 8, cx + 1, cy - 2, 0xCCFFFFFF);
+        c.fill(cx, cy + 2, cx + 1, cy + 8, 0xCCFFFFFF);
     }
 
     private static final java.util.Set<Long> EXPLODED = new java.util.HashSet<>();

@@ -19,6 +19,8 @@ public abstract class CameraMixin {
 
     @Inject(method = "update", at = @At("TAIL"), require = 0)
     private void untilits$free(World world, Entity entity, boolean tp, boolean inv, float delta, CallbackInfo ci) {
+        double[] dp = dev.untilits.Kill3D.camPose();
+        if (dp != null && !Freecam.active) { setRotation((float) dp[3], (float) dp[4]); setPos(dp[0], dp[1], dp[2]); thirdPerson = true; return; }
         if (dev.untilits.CombatFx.flActive && !Freecam.active) { setRotation(dev.untilits.CombatFx.flYaw, dev.untilits.CombatFx.flPitch); thirdPerson = thirdPerson; return; }
         if (!Freecam.active) return;
         Vec3d p = Freecam.pos(delta);

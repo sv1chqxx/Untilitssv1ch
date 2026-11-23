@@ -258,6 +258,7 @@ public final class MainScreen extends UiScreen {
         List<Item> l = new ArrayList<>();
         l.add(feat("jumpCircles", "Включить Jump Circles"));
         l.add(new Cycle("Вид", () -> CombatFx.JC_MODES[d.jcMode], () -> d.jcMode = (d.jcMode + 1) % CombatFx.JC_MODES.length));
+        l.add(new Cycle("Цвет", () -> CombatFx.JC_COLORS[d.jcColor], () -> d.jcColor = (d.jcColor + 1) % CombatFx.JC_COLORS.length));
         l.add(new Slider("Размер", 50, 220, 10, "%", () -> d.jcSize, v -> d.jcSize = v));
         return l;
     }
@@ -267,6 +268,7 @@ public final class MainScreen extends UiScreen {
         List<Item> l = new ArrayList<>();
         l.add(feat("killFx", "Включить Kill Effects"));
         l.add(new Cycle("Эффект", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % VisualFx.KILL.length));
+        l.add(new Toggle("FPV: камера от дрона", () -> d.killCam, v -> d.killCam = v));
         l.add(new Slider("Автобус, длит.", 6, 14, 1, " c", () -> d.killBusDur, v -> d.killBusDur = v));
         l.add(new Slider("FPV, длит.", 3, 8, 1, " c", () -> d.killFpvDur, v -> d.killFpvDur = v));
         l.add(new Hint("Срабатывает, если цель убита"));

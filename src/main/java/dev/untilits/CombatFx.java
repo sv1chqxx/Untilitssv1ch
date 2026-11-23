@@ -14,6 +14,7 @@ import java.util.List;
 
 /** Jump Circles, Hit Particles, Hitmarker (+звук), Zoom, FreeLook. */
 public final class CombatFx {
+    public static final String[] JC_COLORS = {"Акцент", "Радуга", "Градиент", "Случайный"};
     public static final String[] JC_MODES = {"Кольца", "Волны", "Звезда", "Спираль", "Искры", "Радуга"};
     public static final String[] HIT_MODES = {"Криты", "Искры", "Сердца", "Души"};
     public static final String[] SOUNDS = {"Выкл", "Дзынь", "Колокол", "Пинг", "Хруст"};
@@ -101,12 +102,12 @@ public final class CombatFx {
         if (!Cfg.D.jumpCircles || CIRCLES.isEmpty()) return;
         long now = System.currentTimeMillis();
         CIRCLES.removeIf(k -> now - k.at > 1000);
-        int col = Cfg.D.accent;
         int mode = Cfg.D.jcMode;
         double sc = Cfg.D.jcSize / 100.0;
         for (Circle k : CIRCLES) {
             float f = (now - k.at) / 1000f;
             int a = (int) (230 * (1f - f));
+            int col = Cfg.D.jcColor == 3 ? Gfx.hsv(((k.at * 2654435761L) & 0xFFFF) / 65535f, 0.7f, 1f) : Cfg.D.accent;
             switch (mode) {
                 case 0 -> { ring(c, k, (0.3 + f * 1.8) * sc, 32, Gfx.withAlpha(col, a), 0); ring(c, k, (0.3 + f * 1.8) * 0.7 * sc, 32, Gfx.withAlpha(col, a / 3), 0); }
                 case 1 -> { for (int j = 0; j < 3; j++) { float g = f - j * 0.12f; if (g > 0) ring(c, k, (0.2 + g * 2.2) * sc, 32, Gfx.withAlpha(col, (int) (230 * (1f - g))), 0); } }
@@ -153,7 +154,9 @@ public final class CombatFx {
             double ang = i * Math.PI * 2 / n;
             boolean ok = Projector.project(k.x + Math.cos(ang) * r, k.y, k.z + Math.sin(ang) * r, P);
             int col = color;
-            if (rainbow == 1) col = Gfx.withAlpha(Gfx.hsv(i / (float) n, 0.8f, 1f), color >>> 24);
+            int cm = rainbow == 1 ? 1 : Cfg.D.jcColor;
+            if (cm == 1) col = Gfx.withAlpha(Gfx.hsv((i / (float) n + (System.currentTimeMillis() % 3000) / 3000f) % 1f, 0.8f, 1f), color >>> 24);
+            else if (cm == 2) col = Gfx.withAlpha(Gfx.hsv((Gfx.hueOf(Cfg.D.accent) + 0.3f * i / n) % 1f, 0.75f, 1f), color >>> 24);
             if (ok && prev) TargetEsp.seg(c, px, py, P[0], P[1], col);
             px = P[0]; py = P[1]; prev = ok;
         }

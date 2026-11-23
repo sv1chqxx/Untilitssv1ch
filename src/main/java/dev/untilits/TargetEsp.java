@@ -4,23 +4,29 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 
-/** Эффекты вокруг цели (по мотивам TargetESP): маркер, круг, призраки, кристаллы, спираль. Рисуется в 2D по проекции. */
+/** Эффекты вокруг цели (по образцу TargetESP из Maksai): рисуются спрайтами по проекции. */
 public final class TargetEsp {
-    public static final String[] MODES = {"Маркер", "Круг", "Призраки", "Кристаллы", "Спираль", "Сакура", "Молнии"};
+    public static final String[] MODES = {"Маркер", "Призраки", "Цветение", "Созвездие", "Сердца", "Цепи", "Сакура", "Роза", "Мечи", "Молнии", "Круг"};
     public static final String[] SKINS = {"Классика", "Прицел", "Звезда", "Кольцо"};
     private static final String[] SKIN_TEX = {"marker0", "marker1", "marker2", "marker3"};
     static final float[] P = new float[3], Q = new float[3];
+    private static final float[] R1 = new float[3], R2 = new float[3];
+    private static final ItemStack SWORD = new ItemStack(Items.DIAMOND_SWORD);
 
     public static LivingEntity target;
-    private static long seen;
+    private static LivingEntity shown;
+    private static long seen, since;
 
     private TargetEsp() { }
 
     private static Identifier tex(String n) { return Identifier.of("untilits", "textures/fx/" + n + ".png"); }
+
+    public static long seenAt() { return seen; }
 
     public static void tick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) { target = null; return; }
@@ -32,27 +38,32 @@ public final class TargetEsp {
         }
     }
 
+    // ---------- примитивы ----------
+
     private static int col(float hueShift, int alpha) {
-        return Gfx.withAlpha(Gfx.hsv(((Cfg.D.tgtHue + hueShift) % 360f) / 360f, 0.65f, 1f), alpha);
+        return Gfx.withAlpha(Gfx.hsv(((Cfg.D.tgtHue + hueShift) % 360f + 360f) % 360f / 360f, 0.62f, 1f), Math.max(0, Math.min(255, alpha)));
     }
 
-    /** Спрайт с центром в (x,y), размером s пикселей, поворотом rot. */
+    /** Квадратный спрайт 256x256 с центром (x,y), размером s px, поворотом rot. */
     static void spr(DrawContext c, String name, float x, float y, float s, float rot, int color) {
-        if (s < 2f) return;
+        sprRect(c, name, x, y, s, s, rot, color, 256, 256);
+    }
+
+    static void sprRect(DrawContext c, String name, float x, float y, float sw, float sh, float rot, int color, int tw, int th) {
+        if (sw < 1.5f || sh < 1.5f || (color >>> 24) == 0) return;
         var m = c.getMatrices();
         m.pushMatrix();
         m.translate(x, y);
         m.rotate(rot);
-        float k = s / 64f;
-        m.scale(k, k);
-        c.drawTexture(RenderPipelines.GUI_TEXTURED, tex(name), -32, -32, 0f, 0f, 64, 64, 256, 256, 256, 256, color);
+        m.scale(sw / tw, sh / th);
+        c.drawTexture(RenderPipelines.GUI_TEXTURED, tex(name), -tw / 2, -th / 2, 0f, 0f, tw, th, tw, th, tw, th, color);
         m.popMatrix();
     }
 
     static void seg(DrawContext c, float x0, float y0, float x1, float y1, int col) {
         float dx = x1 - x0, dy = y1 - y0;
         float len = (float) Math.sqrt(dx * dx + dy * dy);
-        if (len < 0.5f || len > 600f) return;
+        if (len < 0.5f || len > 700f) return;
         var m = c.getMatrices();
         m.pushMatrix();
         m.translate(x0, y0);
@@ -61,15 +72,22 @@ public final class TargetEsp {
         m.popMatrix();
     }
 
-    /** Пикселей на 1 блок на расстоянии точки. */
-    private static final float[] R1 = new float[3], R2 = new float[3];
-
     static float pxPerBlock(double x, double y, double z) {
         if (!Projector.project(x, y, z, R1) || !Projector.project(x, y + 1, z, R2)) return 0;
         return Math.abs(R2[1] - R1[1]);
     }
 
-    public static long seenAt() { return seen; }
+    private static float rnd(int i, int k) {
+        double v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+        return (float) (v - Math.floor(v));
+    }
+
+    /** Мягкое свечение под спрайтом. */
+    private static void glow(DrawContext c, float x, float y, float s, int color) {
+        if (Cfg.D.tgtGlow) spr(c, "glow", x, y, s, 0, color);
+    }
+
+    // ---------- рендер ----------
 
     public static void render(DrawContext c, MinecraftClient mc, float tp) {
         Cfg.Data d = Cfg.D;
@@ -78,130 +96,241 @@ public final class TargetEsp {
         long now = System.currentTimeMillis();
         float fade = Math.min(1f, (2500 - (now - seen)) / 600f);
         if (fade <= 0f) return;
+        if (t != shown) { shown = t; since = now; }
+        float appear = Math.min(1f, (now - since) / 380f);
+        appear = 1f - (1f - appear) * (1f - appear);
         if (t == mc.player && !Freecam.active) return;
         Vec3d p = t.getLerpedPos(tp);
         double h = t.getHeight(), w = t.getWidth();
-        float time = (now % 100000L) / 1000f;
+        float sp = d.tgtSpeed / 100f;
+        float time = (now % 1000000L) / 1000f * sp;
         float size = d.tgtSize / 100f;
         boolean hurt = d.tgtFlash && t.hurtTime > 0;
-        int base = hurt ? 0xFF4040 : -1;
-        int a = (int) (255 * fade);
+        int a = (int) (255 * fade * appear);
+        int n = d.tgtCount;
+        double cy = p.y + h * 0.55;
         switch (d.tgtMode) {
-            case 0 -> {
-                float ppb = pxPerBlock(p.x, p.y + h * 0.55, p.z);
-                if (ppb <= 0 || !Projector.project(p.x, p.y + h * 0.55, p.z, P)) return;
-                float px = Math.min(260f, ppb * (float) Math.max(0.9, h * 0.9) * size);
-                int color = hurt ? Gfx.withAlpha(0xFF4040, a) : Gfx.withAlpha(Gfx.hsv(d.tgtHue / 360f, 0.55f, 1f), a);
-                spr(c, SKIN_TEX[d.tgtSkin], P[0], P[1], px, time * 1.6f, color);
-            }
-            case 1 -> {
-                int n = 36;
-                double r = (w * 0.75 + 0.1) * size;
-                double yy = p.y + (0.5 + 0.5 * Math.sin(time * 2.2)) * h;
-                float px = 0, py = 0;
-                boolean prev = false;
-                for (int i = 0; i <= n; i++) {
-                    double ang = i * Math.PI * 2 / n;
-                    boolean ok = Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P);
-                    if (ok && prev) seg(c, px, py, P[0], P[1], hurt ? Gfx.withAlpha(base, a) : col(i * 3f, a));
-                    px = P[0]; py = P[1]; prev = ok;
-                }
-                // шлейф-ореол под кругом
-                prev = false;
-                for (int i = 0; i <= n; i++) {
-                    double ang = i * Math.PI * 2 / n;
-                    boolean ok = Projector.project(p.x + Math.cos(ang) * r, p.y + 0.02, p.z + Math.sin(ang) * r, P);
-                    if (ok && prev) seg(c, px, py, P[0], P[1], Gfx.withAlpha(col(i * 3f, 255), a / 3));
-                    px = P[0]; py = P[1]; prev = ok;
-                }
-            }
-            case 2 -> {
-                double r = (w * 0.9 + 0.35) * size;
-                for (int g = 0; g < 3; g++) {
-                    for (int k = 0; k < 6; k++) {
-                        float tt = time * 2.4f - k * 0.11f;
-                        double ang = tt + g * Math.PI * 2 / 3;
-                        double yy = p.y + h * (0.5 + 0.42 * Math.sin(tt * 0.8 + g * 2.1));
-                        if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
-                        float ppb = pxPerBlock(p.x, yy, p.z);
-                        float s = ppb * 0.55f * size * (1f - k * 0.13f);
-                        int al = (int) (a * (1f - k * 0.16f));
-                        spr(c, "glow", P[0], P[1], s, 0, hurt ? Gfx.withAlpha(base, al) : col(g * 30f, al));
-                    }
-                }
-            }
-            case 3 -> {
-                double r = (w * 0.85 + 0.3) * size;
-                for (int i = 0; i < 6; i++) {
-                    double ang = time * 1.5 + i * Math.PI / 3;
-                    double yy = p.y + h + 0.25 + Math.sin(time * 2 + i) * 0.08;
-                    if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
-                    float ppb = pxPerBlock(p.x, yy, p.z);
-                    float s = Math.max(3f, ppb * 0.14f * size);
-                    int color = hurt ? Gfx.withAlpha(base, a) : col(i * 20f, a);
-                    spr(c, "glow", P[0], P[1], s * 3.2f, 0, Gfx.withAlpha(color, a / 2));
-                    var m = c.getMatrices();
-                    m.pushMatrix();
-                    m.translate(P[0], P[1]);
-                    m.rotate((float) (Math.PI / 4 + time * 2));
-                    int hs = Math.max(2, (int) (s * 0.5f));
-                    c.fill(-hs, -hs, hs, hs, color);
-                    m.popMatrix();
-                }
-            }
-            case 5 -> {
-                int n = 26;
-                for (int i = 0; i < n; i++) {
-                    float ph = (time * 0.3f + i / (float) n) % 1f;
-                    double ang = i * 2.4 + time * 0.9;
-                    double r = (w * 0.7 + 0.25 + 0.3 * (0.5 + 0.5 * Math.sin(i * 1.7 + time))) * size;
-                    double yy = p.y + h + 0.3 - ph * (h + 0.5);
-                    if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
-                    float ppb = pxPerBlock(p.x, yy, p.z);
-                    float al = (float) Math.sin(ph * Math.PI);
-                    spr(c, "petal", P[0], P[1], ppb * 0.22f * size, time * 2f + i, Gfx.withAlpha(Gfx.lerp(0xFFFFFFFF, Gfx.hsv(d.tgtHue / 360f, 0.5f, 1f), 0.5f), (int) (a * al)));
-                }
-            }
-            case 6 -> {
-                long seed = (long) (time * 9f);
-                for (int b = 0; b < 3; b++) {
-                    java.util.Random rnd = new java.util.Random(seed * 31 + b * 977);
-                    double ox = (rnd.nextDouble() - .5) * 1.6 * size, oz = (rnd.nextDouble() - .5) * 1.6 * size;
-                    double x0 = p.x + ox, z0 = p.z + oz, y0 = p.y + h + 1.6;
-                    float lx = 0, ly = 0;
-                    boolean prev = false;
-                    int segs = 7;
-                    for (int k = 0; k <= segs; k++) {
-                        double f = k / (double) segs;
-                        double jx = k == segs ? 0 : (rnd.nextDouble() - .5) * 0.5, jz = k == segs ? 0 : (rnd.nextDouble() - .5) * 0.5;
-                        double xx = x0 + (p.x - x0) * f + jx, zz = z0 + (p.z - z0) * f + jz, yy = y0 + (p.y - y0) * f;
-                        boolean ok = Projector.project(xx, yy, zz, P);
-                        if (ok && prev) {
-                            seg(c, lx, ly, P[0], P[1], Gfx.withAlpha(col(0, 255), a / 3));
-                            seg(c, lx + 1, ly, P[0] + 1, P[1], Gfx.withAlpha(0xFFFFFF, a));
-                        }
-                        lx = P[0]; ly = P[1]; prev = ok;
-                    }
-                }
-            }
-            default -> {
-                double r = (w * 0.7 + 0.2) * size;
-                for (int s2 = 0; s2 < 2; s2++) {
-                    for (int k = 0; k < 14; k++) {
-                        float f = k / 13f;
-                        double ang = time * 2.0 + f * Math.PI * 3 + s2 * Math.PI;
-                        double yy = p.y + ((f + time * 0.25f) % 1.0) * h;
-                        if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
-                        float ppb = pxPerBlock(p.x, yy, p.z);
-                        spr(c, "glow", P[0], P[1], ppb * 0.32f * size, 0,
-                                hurt ? Gfx.withAlpha(base, a) : col(f * 70f + s2 * 40f, (int) (a * (0.35f + 0.65f * f))));
-                    }
-                }
+            case 0 -> marker(c, p, h, size, time, hurt, a);
+            case 1 -> ghosts(c, p, w, h, size, time, hurt, a, n);
+            case 2 -> bloom(c, p, w, h, size, time, hurt, a, n);
+            case 3 -> constellation(c, p, w, h, size, time, hurt, a, n);
+            case 4 -> hearts(c, p, w, h, size, time, hurt, a, n);
+            case 5 -> chains(c, p, w, h, size, time, hurt, a);
+            case 6 -> petals(c, p, w, h, size, time, a, n, "petal", "flower", true);
+            case 7 -> petals(c, p, w, h, size, time, a, n, "rosepetal", "rose", false);
+            case 8 -> swords(c, p, w, h, size, time, hurt, a, n);
+            case 9 -> lightning(c, p, w, h, size, time, hurt, a, n);
+            default -> circle(c, p, w, h, size, time, hurt, a);
+        }
+    }
+
+    private static int tint(boolean hurt, float shift, int alpha) { return hurt ? Gfx.withAlpha(0xFF4040, alpha) : col(shift, alpha); }
+
+    private static void marker(DrawContext c, Vec3d p, double h, float size, float time, boolean hurt, int a) {
+        double y = p.y + h * 0.55;
+        float ppb = pxPerBlock(p.x, y, p.z);
+        if (ppb <= 0 || !Projector.project(p.x, y, p.z, P)) return;
+        float px = Math.min(300f, ppb * (float) Math.max(0.9, h * 0.95) * size);
+        glow(c, P[0], P[1], px * 1.5f, tint(hurt, 0, a / 3));
+        spr(c, SKIN_TEX[Cfg.D.tgtSkin], P[0], P[1], px, time * 1.6f, tint(hurt, 0, a));
+    }
+
+    private static void ghosts(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
+        double r = (w * 0.85 + 0.45) * size;
+        int orbs = Math.max(1, Math.min(4, (n + 1) / 2));
+        for (int g = 0; g < orbs; g++) {
+            for (int k = 0; k < 14; k++) {
+                float tt = time * 2.6f - k * 0.075f;
+                double ang = tt + g * Math.PI * 2 / orbs;
+                double yy = p.y + h * (0.52 + 0.42 * Math.sin(tt * 0.7 + g * 2.1));
+                if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
+                float ppb = pxPerBlock(p.x, yy, p.z);
+                float f = 1f - k / 14f;
+                int al = (int) (a * f * f);
+                glow(c, P[0], P[1], ppb * 0.85f * size * (0.35f + 0.65f * f), tint(hurt, g * 40f + k * 4f, al / 2));
+                spr(c, "bloom", P[0], P[1], ppb * 0.42f * size * f, 0, tint(hurt, g * 40f, al));
             }
         }
     }
 
-    public static boolean isPlayer(LivingEntity e) { return e instanceof PlayerEntity; }
+    private static void bloom(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
+        int count = Math.min(64, n * 4 + 8);
+        for (int i = 0; i < count; i++) {
+            float ph = (time * (0.35f + rnd(i, 1) * 0.3f) + rnd(i, 2)) % 1f;
+            double ang = rnd(i, 3) * Math.PI * 2 + time * 0.3;
+            double rr = (w * 0.5 + 0.15 + ph * (0.9 + rnd(i, 4) * 0.6)) * size;
+            double yy = p.y + h * (0.15 + rnd(i, 5) * 0.75) + ph * 0.5;
+            if (!Projector.project(p.x + Math.cos(ang) * rr, yy, p.z + Math.sin(ang) * rr, P)) continue;
+            float ppb = pxPerBlock(p.x, yy, p.z);
+            float al = (float) Math.sin(ph * Math.PI);
+            float s = ppb * (0.22f + rnd(i, 6) * 0.2f) * size * (1f - ph * 0.4f);
+            spr(c, "bloom", P[0], P[1], s * 2f, 0, tint(hurt, rnd(i, 7) * 60f, (int) (a * al * 0.55f)));
+            spr(c, rnd(i, 8) > 0.5f ? "star4" : "bloom", P[0], P[1], s, time * 2 + i, tint(hurt, rnd(i, 7) * 60f, (int) (a * al)));
+        }
+    }
+
+    private static void constellation(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
+        int count = Math.min(30, n * 2 + 4);
+        float[] xs = new float[count], ys = new float[count];
+        boolean[] ok = new boolean[count];
+        float[] ss = new float[count];
+        for (int i = 0; i < count; i++) {
+            double ang = rnd(i, 1) * Math.PI * 2 + time * 0.35;
+            double yy01 = rnd(i, 2);
+            double rr = (w * 0.6 + 0.55 + rnd(i, 3) * 0.55) * size * Math.sqrt(1 - Math.pow(yy01 * 2 - 1, 2) * 0.6);
+            double yy = p.y + h * (0.05 + yy01 * 1.0);
+            ok[i] = Projector.project(p.x + Math.cos(ang) * rr, yy, p.z + Math.sin(ang) * rr, P);
+            xs[i] = P[0]; ys[i] = P[1];
+            ss[i] = pxPerBlock(p.x, yy, p.z);
+        }
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count, k = (i + 3) % count;
+            if (ok[i] && ok[j] && i != count - 1) seg(c, xs[i], ys[i], xs[j], ys[j], tint(hurt, 20, a / 4));
+            if (ok[i] && ok[k] && i % 3 == 0) seg(c, xs[i], ys[i], xs[k], ys[k], tint(hurt, 20, a / 6));
+        }
+        for (int i = 0; i < count; i++) {
+            if (!ok[i]) continue;
+            float tw = 0.7f + 0.3f * (float) Math.sin(time * 3 + i * 1.7);
+            float s = ss[i] * (0.22f + rnd(i, 4) * 0.14f) * size * tw;
+            glow(c, xs[i], ys[i], s * 3f, tint(hurt, i * 9f, a / 3));
+            spr(c, "star4", xs[i], ys[i], s * 1.8f, time * 0.8f + i, tint(hurt, i * 9f, a));
+        }
+    }
+
+    private static void hearts(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
+        int count = Math.min(24, n + 2);
+        for (int i = 0; i < count; i++) {
+            float ph = (time * 0.32f + i / (float) count) % 1f;
+            double ang = i * 2.399 + time * 0.8 + Math.sin(ph * 6) * 0.4;
+            double rr = (w * 0.55 + 0.3 + 0.15 * Math.sin(ph * 5 + i)) * size;
+            double yy = p.y + ph * (h + 0.7);
+            if (!Projector.project(p.x + Math.cos(ang) * rr, yy, p.z + Math.sin(ang) * rr, P)) continue;
+            float ppb = pxPerBlock(p.x, yy, p.z);
+            float al = (float) Math.sin(ph * Math.PI);
+            float s = ppb * 0.3f * size * (0.7f + 0.3f * (float) Math.sin(time * 6 + i));
+            glow(c, P[0], P[1], s * 2.2f, tint(hurt, 330f, (int) (a * al / 3)));
+            spr(c, "heart", P[0], P[1], s, (float) Math.sin(time * 2 + i) * 0.35f, tint(hurt, 330f - Cfg.D.tgtHue + Cfg.D.tgtHue * 0.1f, (int) (a * al)));
+        }
+    }
+
+    private static void chains(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a) {
+        double r = (w * 0.8 + 0.4) * size;
+        int seg = 12;
+        for (int ring = 0; ring < 2; ring++) {
+            double yy = p.y + h * (ring == 0 ? 0.42 : 0.74) + Math.sin(time * 2 + ring * 2) * 0.04;
+            double dir = ring == 0 ? 1 : -1;
+            for (int i = 0; i < seg; i++) {
+                double a0 = dir * time * 0.9 + i * Math.PI * 2 / seg, a1 = a0 + dir * Math.PI * 2 / seg;
+                boolean o0 = Projector.project(p.x + Math.cos(a0) * r, yy, p.z + Math.sin(a0) * r, P);
+                boolean o1 = Projector.project(p.x + Math.cos(a1) * r, yy, p.z + Math.sin(a1) * r, Q);
+                if (!o0 || !o1) continue;
+                float dx = Q[0] - P[0], dy = Q[1] - P[1];
+                float len = (float) Math.sqrt(dx * dx + dy * dy);
+                if (len < 2f || len > 200f) continue;
+                float depth = (float) (0.55 + 0.45 * Math.sin((a0 + a1) / 2 + 1.5707));
+                sprRect(c, "chain", (P[0] + Q[0]) / 2, (P[1] + Q[1]) / 2, len * 1.1f, len * 0.825f, (float) Math.atan2(dy, dx),
+                        tint(hurt, ring * 25f, (int) (a * (0.35f + 0.65f * depth))), 256, 192);
+            }
+        }
+    }
+
+    private static void petals(DrawContext c, Vec3d p, double w, double h, float size, float time, int a, int n, String petal, String flower, boolean tintHue) {
+        int count = Math.min(48, n * 4 + 6);
+        for (int i = 0; i < count; i++) {
+            float ph = (time * (0.22f + rnd(i, 1) * 0.18f) + rnd(i, 2)) % 1f;
+            double ang = rnd(i, 3) * Math.PI * 2 + time * 0.6 + Math.sin(ph * 7 + i) * 0.5;
+            double rr = (w * 0.6 + 0.25 + rnd(i, 4) * 0.8 + 0.12 * Math.sin(ph * 9)) * size;
+            double yy = p.y + h + 0.5 - ph * (h + 0.7);
+            if (!Projector.project(p.x + Math.cos(ang) * rr, yy, p.z + Math.sin(ang) * rr, P)) continue;
+            float ppb = pxPerBlock(p.x, yy, p.z);
+            float al = (float) Math.sin(ph * Math.PI);
+            boolean fl = i % 5 == 0;
+            float s = ppb * (fl ? 0.3f : 0.2f) * size;
+            int tc = tintHue ? Gfx.withAlpha(Gfx.lerp(0xFFFFFFFF, Gfx.hsv(Cfg.D.tgtHue / 360f, 0.35f, 1f), 0.4f), (int) (a * al)) : Gfx.withAlpha(0xFFFFFF, (int) (a * al));
+            spr(c, fl ? flower : petal, P[0], P[1], s, time * 2.2f + i * 1.3f, tc);
+        }
+    }
+
+    private static void swords(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
+        int count = Math.min(12, n + 1);
+        double r = (w * 0.8 + 0.7) * size;
+        for (int i = 0; i < count; i++) {
+            double ang = time * 1.4 + i * Math.PI * 2 / count;
+            double yy = p.y + h * 0.58 + Math.sin(time * 2 + i * 1.3) * 0.12;
+            if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
+            float ppb = pxPerBlock(p.x, yy, p.z);
+            float depth = (float) (0.65 + 0.35 * Math.sin(ang + 1.5707));
+            float s = ppb * 0.55f * size * depth;
+            glow(c, P[0], P[1], s * 1.6f, tint(hurt, i * 15f, (int) (a * 0.35f)));
+            if (s < 3f) continue;
+            var m = c.getMatrices();
+            m.pushMatrix();
+            m.translate(P[0], P[1]);
+            m.rotate((float) (Math.sin(ang) * 0.5 + 0.785));
+            m.scale(s / 16f, s / 16f);
+            c.drawItem(SWORD, -8, -8);
+            m.popMatrix();
+        }
+    }
+
+    private static void lightning(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
+        Cfg.Data d = Cfg.D;
+        double r = (w * 0.85 + 0.55) * size;
+        for (int i = 0; i < n; i++) {
+            double ang = time * 0.9 + i * Math.PI * 2 / n;
+            double yy = p.y + h * (0.35 + 0.6 * rnd(i, 1)) + Math.sin(time * 2.1 + i) * 0.1;
+            if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
+            float ppb = pxPerBlock(p.x, yy, p.z);
+            float fl = (float) Math.pow(0.5 + 0.5 * Math.sin(time * 7 + i * 2.7), 2);
+            float s = ppb * 0.62f * size * (0.85f + 0.3f * fl);
+            int al = (int) (a * (0.45f + 0.55f * fl));
+            glow(c, P[0], P[1], s * 2.4f, tint(hurt, i * 12f, al / 2));
+            spr(c, "bolt", P[0], P[1], s, (float) Math.sin(time * 3 + i) * 0.25f, tint(hurt, i * 12f, al));
+            spr(c, "bolt", P[0], P[1], s * 0.5f, (float) Math.sin(time * 3 + i) * 0.25f, Gfx.withAlpha(0xFFFFFF, al));
+        }
+        // вспышка-удар над головой
+        float cyc = (time / 3.3f) % 1f;
+        if (cyc < 0.09f) {
+            float f = cyc / 0.09f;
+            double hy = p.y + h + 1.8 - f * 1.8;
+            if (Projector.project(p.x, hy, p.z, P)) {
+                float ppb = pxPerBlock(p.x, hy, p.z);
+                int al = (int) (a * (1f - f * 0.6f));
+                glow(c, P[0], P[1], ppb * 2.2f * size, tint(hurt, 0, al / 2));
+                spr(c, "bolt", P[0], P[1], ppb * 1.6f * size, 0, Gfx.withAlpha(0xFFFFFF, al));
+            }
+            if (d.tgtLFlash) {
+                int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
+                sprRect(c, "screenglow", sw / 2f, sh / 2f, sw, sh, 0, tint(hurt, 0, (int) (110 * (1f - f))), 512, 288);
+            }
+        }
+    }
+
+    private static void circle(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a) {
+        double r = (w * 0.75 + 0.15) * size;
+        int n = 40;
+        double yy = p.y + (0.5 + 0.5 * Math.sin(time * 2.0)) * h;
+        for (int pass = 0; pass < 2; pass++) {
+            double y0 = pass == 0 ? yy : p.y + 0.03;
+            float px = 0, py = 0;
+            boolean prev = false;
+            for (int i = 0; i <= n; i++) {
+                double ang = i * Math.PI * 2 / n;
+                boolean ok = Projector.project(p.x + Math.cos(ang) * r, y0, p.z + Math.sin(ang) * r, P);
+                if (ok && prev) seg(c, px, py, P[0], P[1], tint(hurt, i * 4f, pass == 0 ? a : a / 3));
+                px = P[0]; py = P[1]; prev = ok;
+            }
+        }
+        for (int k = 0; k < 3; k++) {
+            for (int j = 0; j < 8; j++) {
+                double ang = time * 2.2 - j * 0.09 + k * Math.PI * 2 / 3;
+                if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
+                float ppb = pxPerBlock(p.x, yy, p.z);
+                float f = 1f - j / 8f;
+                glow(c, P[0], P[1], ppb * 0.55f * size * f, tint(hurt, k * 40f, (int) (a * f)));
+            }
+        }
+    }
 
     /** Карточка цели: ник, HP-полоса. */
     public static void renderInfo(DrawContext c, MinecraftClient mc) {

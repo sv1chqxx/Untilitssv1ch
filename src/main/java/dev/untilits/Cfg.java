@@ -115,7 +115,8 @@ public final class Cfg {
         public int ambTint;
         public int rainDensity = 100;
         public int tgtMode, tgtSkin, tgtSize = 100, tgtHue = 265;
-        public boolean tgtFlash = true;
+        public boolean tgtFlash = true, tgtGlow = true, tgtLFlash = true;
+        public int tgtCount = 6, tgtSpeed = 100;
         public boolean ambOn, ambTimeLock;
         public int ambTime = 6000, ambWeather = 1;
         public boolean fastExp;
@@ -152,7 +153,9 @@ public final class Cfg {
         D.bloodAmount = clamp(D.bloodAmount, 10, 300);
         D.espRange = clamp(D.espRange, 8, 512);
         D.tracerRange = clamp(D.tracerRange, 8, 512);
-        D.tgtMode = clamp(D.tgtMode, 0, 6);
+        D.tgtMode = clamp(D.tgtMode, 0, 10);
+        D.tgtCount = clamp(D.tgtCount, 1, 24);
+        D.tgtSpeed = clamp(D.tgtSpeed, 30, 300);
         D.optDist = clamp(D.optDist, 0, 256);
         D.hitMode = clamp(D.hitMode, 0, 3);
         D.hitSound = clamp(D.hitSound, 0, 4);

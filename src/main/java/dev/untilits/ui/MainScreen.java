@@ -1,8 +1,11 @@
 package dev.untilits.ui;
 
-import dev.untilits.Cfg;
+import dev.untilits.Binds;
 import dev.untilits.CombatFx;
+import dev.untilits.Cfg;
+import dev.untilits.Features;
 import dev.untilits.Gfx;
+import dev.untilits.Notif;
 import dev.untilits.NoRender;
 import dev.untilits.TargetEsp;
 import dev.untilits.VisualFx;
@@ -10,183 +13,364 @@ import dev.untilits.Waypoints;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.input.KeyInput;
+import net.minecraft.util.math.BlockPos;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
- * Обычное меню (P). По бокам выезжают панели: слева — Метки (waypoints), справа — Эффекты, Predictions, Броня.
- * Внизу справа — еле заметный круг, ведущий к вводу кода.
+ * Обычное меню (P). Три вкладки (Функции / Визуал / Оптимизация) из «плашек».
+ * ЛКМ по плашке — вкл/выкл, ПКМ — настройки сбоку, СКМ — привязка клавиши.
  */
 public final class MainScreen extends UiScreen {
-    private static final String[] TABS = {"HUD", "Эффекты", "Визуал", "Таргет ESP", "Оптим.", "Цвета"};
+    private static final String[] TABS = {"Функции", "Визуал", "Оптимизация"};
     private static final String[] CORNERS = {"Лево-верх", "Право-верх", "Лево-низ", "Право-низ"};
-    private static final int DW = 184;       // ширина боковой панели
-    private static final int ROWS = 5;       // строк меток на экране
+    private static final int PW = 212;       // ширина боковой панели настроек
     private static int tab = 0;
-    private static int optPage = 0;
-    private static int visPage = 0;
-    private static final String[] VIS_PAGES = {"Ambience", "Утилиты", "Бой", "Вид"};
-    private static final String[] OPT_PAGES = {"NoRender: интерфейс", "NoRender: мир", "Оптимизация", "Оптимизация 2"};
-    private static boolean leftOpen, rightOpen;
-    private int scrollL, scrollR;
-    private int dw = DW;
+
+    private record PanelDef(String key, String title, Supplier<List<Item>> build) { }
+    private static PanelDef panel;           // открытая панель настроек (переживает пересоздание экрана)
+
+    private final List<Plate> plates = new ArrayList<>();
+    private List<Item> pItems = new ArrayList<>();
+    private int scrollMain, scrollP;
+    private float panelA;
+    private long lastNs = System.nanoTime();
+    private int dw = PW;
     private boolean overlay;
 
-    private float leftA, rightA;
-    private long lastNs = System.nanoTime();
-    private final List<Item> left = new ArrayList<>();
-    private final List<Item> right = new ArrayList<>();
-    private TextBox wpName;
+    private final TextBox wpName = new TextBox("Название метки", 22, this::wpEnter);
+    private final TextBox wpX = new TextBox("X", 10, null), wpY = new TextBox("Y", 10, null), wpZ = new TextBox("Z", 10, null);
 
     public MainScreen() { super("Untilits"); }
 
     @Override
     protected void init() {
-        layoutPanel(380, 226);
-        build();
-        buildLeft();
-        buildRight();
+        layoutPanel(348, 256);
+        buildPlates();
+        rebuildPanel();
+        panelA = panel != null ? 1f : 0f;
         relayout();
-        leftA = leftOpen ? 1f : 0f;
-        rightA = rightOpen ? 1f : 0f;
     }
 
-    // ---------------- основная панель ----------------
+    @Override protected boolean showBindHint() { return false; }
 
-    private Toggle nr(String label, int bit) { return new Toggle(label, () -> NoRender.nr(bit), v -> NoRender.setNr(bit, v)); }
+    // ======================================================= плашки
 
-    private Toggle opt(String label, int bit) { return new Toggle(label, () -> NoRender.opt(bit), v -> NoRender.setOpt(bit, v)); }
+    private final class Plate extends Item {
+        final String label, id;
+        final BooleanSupplier get;
+        final Consumer<Boolean> set;
+        final PanelDef def;
 
-    private void build() {
-        items.clear();
+        Plate(String label, String id, BooleanSupplier get, Consumer<Boolean> set, PanelDef def) {
+            this.label = label; this.id = id; this.get = get; this.set = set; this.def = def; h = 26;
+        }
+
+        boolean hit(int mx, int my) { return mx >= x && mx < x + w && my >= y && my < y + h; }
+
+        void draw(DrawContext c, int mx, int my) {
+            boolean on = get.getAsBoolean(), hov = hit(mx, my);
+            boolean open = def != null && panel != null && panel.key().equals(def.key());
+            int acc = Cfg.D.accent;
+            Gfx.round(c, x, y, w, h, 9, on ? Gfx.withAlpha(acc, hov ? 96 : 74) : (hov ? 0x26FFFFFF : 0x16FFFFFF));
+            Gfx.ring(c, x, y, w, h, 9, open ? 0xDDFFFFFF : (on ? Gfx.withAlpha(acc, 190) : 0x2AFFFFFF));
+            boolean binding = id != null && id.equals(bindingId);
+            String t = binding ? "Нажми клавишу…" : label;
+            int reserve = 34 + (def != null ? 10 : 0);
+            while (t.length() > 3 && Gfx.tw(t) > w - reserve) t = t.substring(0, t.length() - 1);
+            Gfx.text(c, t, x + 9, y + (h - 8) / 2, binding ? Gfx.withAlpha(acc, 255) : (on ? 0xFFFFFFFF : Gfx.TEXT));
+            int sx = x + w - 10;
+            Gfx.disc(c, sx, y + h / 2, 3, on ? Gfx.withAlpha(acc, 255) : 0x44FFFFFF);
+            if (def != null) Gfx.ring(c, sx - 14, y + h / 2 - 3, 6, 6, 3, open ? 0xFFFFFFFF : 0x77FFFFFF);
+            Integer key = id == null ? null : Cfg.D.binds.get(id);
+            if (key != null && !binding) {
+                String k = Binds.keyName(key);
+                Gfx.text(c, k, x + w - reserve + 6 - Gfx.tw(k) + (def != null ? 0 : 6), y + (h - 8) / 2, Gfx.withAlpha(acc, 230));
+            }
+        }
+    }
+
+    private Plate plate(String label, String id, PanelDef def) {
+        Features.F f = Features.ALL.get(id);
+        return new Plate(label, id, f.get(), f.set(), def);
+    }
+
+    private Plate plate(String label, BooleanSupplier get, Consumer<Boolean> set, PanelDef def) {
+        return new Plate(label, null, get, set, def);
+    }
+
+    private Plate nr(String label, int bit) { return plate(label, () -> NoRender.nr(bit), v -> NoRender.setNr(bit, v), null); }
+
+    private Plate opt(String label, int bit) { return plate(label, () -> NoRender.opt(bit), v -> NoRender.setOpt(bit, v), null); }
+
+    private void buildPlates() {
+        plates.clear();
         Cfg.Data d = Cfg.D;
         switch (tab) {
             case 0 -> {
-                items.add(feat("fps", "FPS"));
-                items.add(feat("cps", "CPS (клики в секунду)"));
-                items.add(feat("ping", "Пинг"));
-                items.add(feat("coords", "Координаты"));
-                items.add(feat("keys", "Клавиши (WASD / мышь)"));
-                items.add(feat("armor", "Броня и прочность"));
-                items.add(new Cycle("Положение HUD", () -> CORNERS[d.hudCorner], () -> d.hudCorner = (d.hudCorner + 1) % 4));
+                PanelDef hud = def("hud", "HUD", this::pHud);
+                plates.add(plate("FPS", "fps", hud));
+                plates.add(plate("CPS", "cps", hud));
+                plates.add(plate("Пинг", "ping", hud));
+                plates.add(plate("Координаты", "coords", hud));
+                plates.add(plate("Клавиши", "keys", hud));
+                plates.add(plate("Броня (HUD)", "armor", hud));
+                plates.add(plate("Potion HUD", "potionHud", null));
+                plates.add(plate("Predictions", "predict", def("predict", "Predictions", this::pPredict)));
+                plates.add(plate("Прочность брони", "armorOver", def("armor", "Прочность брони", this::pArmor)));
+                plates.add(plate("Метки", "wpEnabled", def("wp", "Метки", this::pWp)));
+                plates.add(plate("Цифры урона", "damageNumbers", def("dmg", "Цифры урона", this::pDmg)));
+                plates.add(plate("Кровь", "blood", def("blood", "Кровь", this::pBlood)));
+                plates.add(plate("Уведомления", "notif", null));
+                plates.add(plate("FastEXP", "fastExp", null));
             }
             case 1 -> {
-                items.add(new Section("Цифры урона"));
-                items.add(feat("damageNumbers", "Показывать цифры урона"));
-                items.add(new Slider("Размер цифр", 50, 250, 10, "%", () -> d.dmgScale, v -> d.dmgScale = v));
-                items.add(new Section("Кровь"));
-                items.add(feat("blood", "Кровь при ударах"));
-                items.add(new Slider("Количество крови", 25, 300, 25, "%", () -> d.bloodAmount, v -> d.bloodAmount = v));
-            }
-            case 2 -> {
-                items.add(new Cycle("Раздел", () -> VIS_PAGES[visPage], () -> { visPage = (visPage + 1) % 4; build(); }));
-                if (visPage == 0) {
-                    items.add(feat("ambOn", "Включить Ambience"));
-                    items.add(new Cycle("Погода", () -> VisualFx.WEATHER[d.ambWeather], () -> d.ambWeather = (d.ambWeather + 1) % 4));
-                    items.add(feat("ambTimeLock", "Зафиксировать время"));
-                    items.add(new Slider("Время суток", 0, 24000, 500, "", () -> d.ambTime, v -> d.ambTime = v));
-                    items.add(new Cycle("Тонировка экрана", () -> VisualFx.TINT[d.ambTint], () -> d.ambTint = (d.ambTint + 1) % 8));
-                    items.add(feat("ambRain", "Дождь-оверлей на экране"));
-                    items.add(new Slider("Плотность дождя", 20, 300, 20, "%", () -> d.rainDensity, v -> d.rainDensity = v));
-                } else if (visPage == 2) {
-                    items.add(feat("jumpCircles", "Jump Circles (круги при прыжке)"));
-                    items.add(feat("hitFx", "Hit Particles (частицы при ударе)"));
-                    items.add(new Cycle("Частицы", () -> CombatFx.HIT_MODES[d.hitMode], () -> d.hitMode = (d.hitMode + 1) % 4));
-                    items.add(feat("hitmarker", "Hitmarker (крестик при ударе)"));
-                    items.add(new Cycle("Звук попадания", () -> CombatFx.SOUNDS[d.hitSound], () -> d.hitSound = (d.hitSound + 1) % 5));
-                } else if (visPage == 3) {
-                    items.add(feat("zoomOn", "Zoom (удерживай C)"));
-                    items.add(new Slider("Сила зума", 2, 12, 1, "x", () -> d.zoomFactor, v -> d.zoomFactor = v));
-                    items.add(feat("flOn", "FreeLook (удерживай Left Alt)"));
-                    items.add(feat("itemPhys", "Item Physics (предметы лежат)"));
-                    items.add(feat("shulkerPrev", "Shulker Preview (в инвентаре)"));
-                } else {
-                    items.add(feat("notif", "Уведомления (вкл/выкл функций)"));
-                    items.add(feat("fastExp", "FastEXP (бутылки опыта без задержки)"));
-                    items.add(feat("cdOn", "Cooldowns (зелье лечения)"));
-                    items.add(feat("memOpt", "Memory Optimizer (чистка памяти)"));
-                    items.add(feat("killFx", "Kill Effects"));
-                    items.add(new Cycle("Эффект убийства", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % 7));
-                }
-            }
-            case 3 -> {
-                items.add(new Section("Эффект вокруг цели"));
-                items.add(feat("tgtEsp", "Target ESP"));
-                items.add(new Cycle("Режим", () -> TargetEsp.MODES[d.tgtMode], () -> d.tgtMode = (d.tgtMode + 1) % TargetEsp.MODES.length));
-                items.add(new Cycle("Скин маркера", () -> TargetEsp.SKINS[d.tgtSkin], () -> d.tgtSkin = (d.tgtSkin + 1) % TargetEsp.SKINS.length));
-                items.add(new Slider("Размер", 40, 250, 10, "%", () -> d.tgtSize, v -> d.tgtSize = v));
-                items.add(new Slider("Цвет (оттенок)", 0, 360, 10, "°", () -> d.tgtHue, v -> d.tgtHue = v));
-                items.add(feat("tgtFlash", "Красная вспышка при ударе"));
-                items.add(feat("tgtInfo", "Карточка цели (ник, HP)"));
-            }
-            case 4 -> {
-                items.add(new Cycle("Раздел", () -> OPT_PAGES[optPage], () -> { optPage = (optPage + 1) % 4; build(); }));
-                if (optPage == 0) {
-                    items.add(nr("Убрать скорборд", NoRender.SCOREBOARD));
-                    items.add(nr("Убрать боссбар", NoRender.BOSSBAR));
-                    items.add(nr("Убрать титры", NoRender.TITLES));
-                    items.add(nr("Убрать виньетку", NoRender.VIGNETTE));
-                    items.add(nr("Убрать эффект портала", NoRender.PORTAL));
-                    items.add(nr("Убрать анимацию тотема", NoRender.TOTEM));
-                } else if (optPage == 1) {
-                    items.add(nr("Убрать огонь на экране", NoRender.FIRE));
-                    items.add(nr("Убрать размытие под водой", NoRender.WATER));
-                    items.add(nr("Убрать дождь и снег", NoRender.WEATHER));
-                    items.add(nr("Убрать дым", NoRender.SMOKE));
-                    items.add(nr("Убрать частицы ломания блоков", NoRender.BREAK));
-                    items.add(nr("Убрать стрелы в игроках", NoRender.ARROWS));
-                    items.add(nr("Убрать свечение игроков", NoRender.PGLOW));
-                } else if (optPage == 3) {
-                    items.add(opt("Simplified Leaves (грани листвы; затем F3+A)", NoRender.O_LEAVES));
-                    items.add(opt("Убрать свечение зачарований", NoRender.O_GLINT));
-                } else {
-                    items.add(opt("Не рисовать предметы на земле", NoRender.O_ITEMS));
-                    items.add(opt("Не рисовать шары опыта", NoRender.O_XP));
-                    items.add(opt("Не рисовать стойки для брони", NoRender.O_STANDS));
-                    items.add(opt("Не рисовать рамки", NoRender.O_FRAMES));
-                    items.add(opt("Не рисовать далёкие снаряды", NoRender.O_PROJ));
-                    items.add(new Slider("Дальность сущностей (0 — всё)", 0, 256, 16, "", () -> d.optDist, v -> d.optDist = v));
-                }
+                plates.add(plate("Target ESP", "tgtEsp", def("tgt", "Target ESP", this::pTgt)));
+                plates.add(plate("Карточка цели", "tgtInfo", null));
+                plates.add(plate("Ambience", "ambOn", def("amb", "Ambience", this::pAmb)));
+                plates.add(plate("Kill Effects", "killFx", def("kill", "Kill Effects", this::pKill)));
+                plates.add(plate("Jump Circles", "jumpCircles", null));
+                plates.add(plate("Hit Particles", "hitFx", def("hitfx", "Hit Particles", this::pHitFx)));
+                plates.add(plate("Hitmarker", "hitmarker", def("hitm", "Hitmarker", this::pHitm)));
+                plates.add(plate("Zoom", "zoomOn", def("zoom", "Zoom", this::pZoom)));
+                plates.add(plate("FreeLook", "flOn", null));
+                plates.add(plate("Item Physics", "itemPhys", null));
+                plates.add(plate("Shulker Preview", "shulkerPrev", null));
+                plates.add(plate("Cooldowns", "cdOn", def("cd", "Cooldowns", this::pCd)));
             }
             default -> {
-                int[] acc = {0x5B8CFF, 0x45D0FF, 0x37E0A8, 0xB78CFF, 0xFF7AC8, 0xFF6B6B, 0xFFB454, 0xF2F4FA};
-                int[] tint = {0x101A2E, 0x0B0E16, 0x1B1230, 0x0E2420, 0x2A1418, 0x2B2F3A};
-                items.add(new Section("Акцент"));
-                items.add(new Swatches("Готовые цвета", acc, () -> d.accent, v -> d.accent = 0xFF000000 | v));
-                items.add(new HueBar());
-                items.add(new Section("Liquid Glass"));
-                items.add(new Swatches("Тон стекла", tint, () -> d.glass, v -> d.glass = v));
-                items.add(new Slider("Прозрачность стекла", 30, 98, 2, "%", () -> d.glassPct, v -> d.glassPct = v));
+                plates.add(nr("Без скорборда", NoRender.SCOREBOARD));
+                plates.add(nr("Без боссбара", NoRender.BOSSBAR));
+                plates.add(nr("Без титров", NoRender.TITLES));
+                plates.add(nr("Без виньетки", NoRender.VIGNETTE));
+                plates.add(nr("Без портала", NoRender.PORTAL));
+                plates.add(nr("Без анимации тотема", NoRender.TOTEM));
+                plates.add(nr("Без огня на экране", NoRender.FIRE));
+                plates.add(nr("Без воды на экране", NoRender.WATER));
+                plates.add(nr("Без дождя и снега", NoRender.WEATHER));
+                plates.add(nr("Без дыма", NoRender.SMOKE));
+                plates.add(nr("Без частиц ломания", NoRender.BREAK));
+                plates.add(nr("Без стрел в игроках", NoRender.ARROWS));
+                plates.add(nr("Без свечения игроков", NoRender.PGLOW));
+                plates.add(opt("Скрыть предметы", NoRender.O_ITEMS));
+                plates.add(opt("Скрыть опыт", NoRender.O_XP));
+                plates.add(opt("Скрыть стойки", NoRender.O_STANDS));
+                plates.add(opt("Скрыть рамки", NoRender.O_FRAMES));
+                plates.add(opt("Скрыть далёкие снаряды", NoRender.O_PROJ));
+                plates.add(plate("Дальность сущностей", () -> d.optDist > 0, v -> d.optDist = v ? 64 : 0, def("dist", "Дальность сущностей", this::pDist)));
+                plates.add(opt("Simplified Leaves", NoRender.O_LEAVES));
+                plates.add(opt("Без блеска зачарований", NoRender.O_GLINT));
+                plates.add(plate("Memory Optimizer", "memOpt", null));
             }
         }
-        place(py + 52);
+        scrollMain = Cfg.clamp(scrollMain, 0, maxScrollMain());
     }
 
-    // ---------------- левая панель: метки ----------------
+    private PanelDef def(String key, String title, Supplier<List<Item>> b) { return new PanelDef(key, title, b); }
+
+    // ======================================================= содержимое панелей настроек
+
+    private List<Item> pHud() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(new Section("Показывать"));
+        l.add(feat("fps", "FPS"));
+        l.add(feat("cps", "CPS"));
+        l.add(feat("ping", "Пинг"));
+        l.add(feat("coords", "Координаты"));
+        l.add(feat("keys", "Клавиши (WASD / мышь)"));
+        l.add(feat("armor", "Броня и прочность"));
+        l.add(new Cycle("Положение HUD", () -> CORNERS[d.hudCorner], () -> d.hudCorner = (d.hudCorner + 1) % 4));
+        return l;
+    }
+
+    private List<Item> pPredict() {
+        List<Item> l = new ArrayList<>();
+        l.add(feat("predict", "Траектории и точка падения"));
+        l.add(feat("predictFlying", "Чужие жемчуга и стрелы"));
+        return l;
+    }
+
+    private List<Item> pArmor() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("armorOver", "Прочность над игроками"));
+        l.add(feat("armorWarn", "Предупреждение о поломке"));
+        l.add(new Slider("Порог предупреждения", 5, 50, 5, "%", () -> d.armorWarnPct, v -> d.armorWarnPct = v));
+        return l;
+    }
+
+    private List<Item> pDmg() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("damageNumbers", "Показывать цифры урона"));
+        l.add(new Slider("Размер цифр", 50, 250, 10, "%", () -> d.dmgScale, v -> d.dmgScale = v));
+        return l;
+    }
+
+    private List<Item> pBlood() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("blood", "Кровь при ударах"));
+        l.add(new Slider("Количество", 25, 300, 25, "%", () -> d.bloodAmount, v -> d.bloodAmount = v));
+        return l;
+    }
+
+    private List<Item> pTgt() {
+        Cfg.Data d = Cfg.D;
+        int m = d.tgtMode;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("tgtEsp", "Включить Target ESP"));
+        l.add(new Cycle("Режим", () -> TargetEsp.MODES[d.tgtMode], () -> { d.tgtMode = (d.tgtMode + 1) % TargetEsp.MODES.length; rebuildPanel(); }));
+        if (m == 0) l.add(new Cycle("Скин маркера", () -> TargetEsp.SKINS[d.tgtSkin], () -> d.tgtSkin = (d.tgtSkin + 1) % TargetEsp.SKINS.length));
+        l.add(new Slider("Размер", 40, 250, 10, "%", () -> d.tgtSize, v -> d.tgtSize = v));
+        l.add(new Slider("Цвет (оттенок)", 0, 360, 10, "°", () -> d.tgtHue, v -> d.tgtHue = v));
+        l.add(new Slider("Скорость", 30, 300, 10, "%", () -> d.tgtSpeed, v -> d.tgtSpeed = v));
+        if (m != 0 && m != 5 && m != 10) l.add(new Slider("Количество", 1, 24, 1, "", () -> d.tgtCount, v -> d.tgtCount = v));
+        l.add(new Toggle("Свечение", () -> d.tgtGlow, v -> d.tgtGlow = v));
+        if (m == 9) l.add(new Toggle("Вспышка экрана", () -> d.tgtLFlash, v -> d.tgtLFlash = v));
+        l.add(feat("tgtFlash", "Красная вспышка при ударе"));
+        l.add(feat("tgtInfo", "Карточка цели (ник, HP)"));
+        return l;
+    }
+
+    private List<Item> pAmb() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("ambOn", "Включить Ambience"));
+        l.add(new Cycle("Погода", () -> VisualFx.WEATHER[d.ambWeather], () -> d.ambWeather = (d.ambWeather + 1) % 4));
+        l.add(feat("ambTimeLock", "Зафиксировать время"));
+        l.add(new Slider("Время суток", 0, 24000, 500, "", () -> d.ambTime, v -> d.ambTime = v));
+        l.add(new Cycle("Тонировка", () -> VisualFx.TINT[d.ambTint], () -> d.ambTint = (d.ambTint + 1) % 8));
+        l.add(feat("ambRain", "Дождь на экране"));
+        l.add(new Slider("Плотность дождя", 20, 300, 20, "%", () -> d.rainDensity, v -> d.rainDensity = v));
+        return l;
+    }
+
+    private List<Item> pKill() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("killFx", "Включить Kill Effects"));
+        l.add(new Cycle("Эффект", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % VisualFx.KILL.length));
+        l.add(new Hint("Срабатывает, если цель убита"));
+        l.add(new Hint("(нужен включённый Target ESP)"));
+        return l;
+    }
+
+    private List<Item> pHitFx() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("hitFx", "Частицы при ударе"));
+        l.add(new Cycle("Вид", () -> CombatFx.HIT_MODES[d.hitMode], () -> d.hitMode = (d.hitMode + 1) % 4));
+        return l;
+    }
+
+    private List<Item> pHitm() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("hitmarker", "Hitmarker"));
+        l.add(new Cycle("Звук", () -> CombatFx.SOUNDS[d.hitSound], () -> d.hitSound = (d.hitSound + 1) % 5));
+        return l;
+    }
+
+    private List<Item> pZoom() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("zoomOn", "Zoom (удерживай C)"));
+        l.add(new Slider("Сила", 2, 12, 1, "x", () -> d.zoomFactor, v -> d.zoomFactor = v));
+        return l;
+    }
+
+    private List<Item> pCd() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("cdOn", "Cooldowns (зелье лечения)"));
+        l.add(new Slider("Размер", 50, 200, 10, "%", () -> d.cdScale, v -> d.cdScale = v));
+        return l;
+    }
+
+    private List<Item> pDist() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(new Slider("Дальность (0 — всё)", 0, 256, 16, "", () -> d.optDist, v -> d.optDist = v));
+        return l;
+    }
+
+    private List<Item> pTheme() {
+        Cfg.Data d = Cfg.D;
+        int[] acc = {0x5B8CFF, 0x45D0FF, 0x37E0A8, 0xB78CFF, 0xFF7AC8, 0xFF6B6B, 0xFFB454, 0xF2F4FA};
+        int[] tint = {0x101A2E, 0x0B0E16, 0x1B1230, 0x0E2420, 0x2A1418, 0x2B2F3A};
+        List<Item> l = new ArrayList<>();
+        l.add(new Section("Акцент"));
+        l.add(new Swatches("Цвета", acc, () -> d.accent, v -> d.accent = 0xFF000000 | v));
+        l.add(new HueBar());
+        l.add(new Section("Liquid Glass"));
+        l.add(new Swatches("Тон стекла", tint, () -> d.glass, v -> d.glass = v));
+        l.add(new Slider("Прозрачность", 30, 98, 2, "%", () -> d.glassPct, v -> d.glassPct = v));
+        return l;
+    }
+
+    // ----- метки (waypoints)
+
+    private void wpEnter() {
+        if (!wpX.text.isBlank() && !wpY.text.isBlank() && !wpZ.text.isBlank()) addCoords(); else addHere();
+    }
+
+    private void wpAdded() { wpName.text = ""; rebuildPanel(); scrollP = 1 << 20; }
 
     private void addHere() {
-        Cfg.WP w = Waypoints.addHere(MinecraftClient.getInstance(), wpName.text);
-        if (w != null) { wpName.text = ""; buildLeft(); scrollL = 1 << 20; }
+        if (Waypoints.addHere(MinecraftClient.getInstance(), wpName.text) != null) wpAdded();
     }
 
     private void addLook() {
-        Cfg.WP w = Waypoints.addLook(MinecraftClient.getInstance(), wpName.text);
-        if (w != null) { wpName.text = ""; buildLeft(); scrollL = 1 << 20; }
+        if (Waypoints.addLook(MinecraftClient.getInstance(), wpName.text) != null) wpAdded();
+        else Notif.push("Наведись на блок", false);
     }
 
-    private void buildLeft() {
-        String keep = wpName == null ? "" : wpName.text;
-        left.clear();
-        wpName = new TextBox("Название метки", 22, this::addHere);
-        wpName.text = keep;
-        left.add(new Section("Новая метка"));
-        left.add(wpName);
-        left.add(new ButtonRow("+ Здесь", this::addHere, "+ По взгляду", this::addLook));
+    private void addCoords() {
+        try {
+            int x = (int) Math.floor(Double.parseDouble(wpX.text.trim().replace(',', '.')));
+            int y = (int) Math.floor(Double.parseDouble(wpY.text.trim().replace(',', '.')));
+            int z = (int) Math.floor(Double.parseDouble(wpZ.text.trim().replace(',', '.')));
+            Waypoints.add(MinecraftClient.getInstance(), wpName.text, new BlockPos(x, y, z));
+            wpAdded();
+        } catch (NumberFormatException e) {
+            Notif.push("Неверные координаты", false);
+        }
+    }
+
+    private void fillMine() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null) return;
+        wpX.text = String.valueOf(mc.player.getBlockX());
+        wpY.text = String.valueOf(mc.player.getBlockY());
+        wpZ.text = String.valueOf(mc.player.getBlockZ());
+    }
+
+    private List<Item> pWp() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("wpEnabled", "Показывать метки"));
+        l.add(feat("wpDeath", "Метка смерти"));
+        l.add(new Slider("Дальность (0 — без лимита)", 0, 2000, 50, "", () -> d.wpMaxDist, v -> d.wpMaxDist = v));
+        l.add(new Section("Новая метка"));
+        l.add(wpName);
+        l.add(wpX);
+        l.add(wpY);
+        l.add(wpZ);
+        l.add(new ButtonRow("Взять мои", this::fillMine, "+ По координатам", this::addCoords));
+        l.add(new ButtonRow("+ Здесь", this::addHere, "+ По взгляду", this::addLook));
         int n = Waypoints.list().size();
-        left.add(new Section("Метки (" + n + ")"));
-        for (int i = 0; i < n; i++) left.add(new WpRow(Waypoints.list().get(i)));
-        if (n == 0) left.add(new Hint("Пока пусто — поставь первую метку"));
+        l.add(new Section("Метки (" + n + ")"));
+        for (Cfg.WP wp : new ArrayList<>(Waypoints.list())) l.add(new WpRow(wp));
+        if (n == 0) l.add(new Hint("Пока пусто"));
+        return l;
     }
 
     private final class WpRow extends Item {
@@ -206,7 +390,6 @@ public final class MainScreen extends UiScreen {
                 sub += "  ·  " + Waypoints.distText(Math.sqrt(mc.player.getEntityPos().squaredDistanceTo(wp.x + .5, wp.y + .5, wp.z + .5)));
             else sub += "  ·  " + (wp.dim.endsWith("nether") ? "Незер" : wp.dim.endsWith("end") ? "Энд" : "др. мир");
             Gfx.text(c, sub, x + 14, y + 15, 0x66FFFFFF);
-            // глаз и крестик
             int ex = x + w - 24;
             if (wp.visible) Gfx.round(c, ex, y + 4, 9, 6, 3, Gfx.withAlpha(Cfg.D.accent, 230));
             else Gfx.ring(c, ex, y + 4, 9, 6, 3, 0x66FFFFFF);
@@ -214,15 +397,20 @@ public final class MainScreen extends UiScreen {
         }
 
         boolean click(int mx, int my) {
-            if (mx < x + 11) { // цвет по кругу
+            if (mx < x + 11) {
                 int i = 0;
                 for (int k = 0; k < Waypoints.PALETTE.length; k++) if (Waypoints.PALETTE[k] == wp.color) i = k;
                 wp.color = Waypoints.PALETTE[(i + 1) % Waypoints.PALETTE.length];
             } else if (mx >= x + w - 12) {
                 Waypoints.list().remove(wp);
-                buildLeft();
+                rebuildPanel();
             } else if (mx >= x + w - 28) {
                 wp.visible = !wp.visible;
+            } else {
+                wpName.text = wp.name;
+                wpX.text = String.valueOf(wp.x);
+                wpY.text = String.valueOf(wp.y);
+                wpZ.text = String.valueOf(wp.z);
             }
             return false;
         }
@@ -230,33 +418,44 @@ public final class MainScreen extends UiScreen {
 
     private static final class Hint extends Item {
         final String t;
-        Hint(String t) { this.t = t; h = 16; }
-        void draw(DrawContext c, int mx, int my) { Gfx.text(c, t, x, y + 4, 0x66FFFFFF); }
+        Hint(String t) { this.t = t; h = 14; }
+        void draw(DrawContext c, int mx, int my) { Gfx.text(c, t, x, y + 3, 0x66FFFFFF); }
     }
 
-    // ---------------- правая панель: эффекты, предикты, броня, метки ----------------
-
-    private void buildRight() {
-        Cfg.Data d = Cfg.D;
-        right.clear();
-        right.add(new Section("Potion HUD"));
-        right.add(feat("potionHud", "Эффекты на экране"));
-        right.add(new Section("Predictions"));
-        right.add(feat("predict", "Траектории и падение"));
-        right.add(feat("predictFlying", "Чужие жемчуга и стрелы"));
-        right.add(new Section("Броня"));
-        right.add(feat("armorOver", "Прочность над игроком"));
-        right.add(feat("armorWarn", "Предупреждение о поломке"));
-        right.add(new Slider("Порог предупреждения", 5, 50, 5, "%", () -> d.armorWarnPct, v -> d.armorWarnPct = v));
-        right.add(new Section("Метки"));
-        right.add(feat("wpEnabled", "Показывать метки"));
-        right.add(feat("wpDeath", "Метка смерти"));
-        right.add(new Slider("Дальность (0 — без лимита)", 0, 2000, 50, "", () -> d.wpMaxDist, v -> d.wpMaxDist = v));
+    private void rebuildPanel() {
+        pItems = panel == null ? new ArrayList<>() : panel.build().get();
     }
 
-    // ---------------- геометрия панелей ----------------
+    private void openPanel(PanelDef def) {
+        if (panel != null && panel.key().equals(def.key())) { closePanel(); return; }
+        panel = def;
+        scrollP = 0;
+        TextBox.focused = null;
+        rebuildPanel();
+    }
+
+    private void closePanel() { panel = null; TextBox.focused = null; }
+
+    // ======================================================= геометрия
 
     private static float ease(float a) { return 1f - (1f - a) * (1f - a) * (1f - a); }
+
+    private int vy0() { return py + 52; }
+    private int vy1() { return py + ph - 22; }
+    private int cw() { return (pw - 32 - 6) / 2; }
+    private int rows() { return (plates.size() + 1) / 2; }
+    private int maxScrollMain() { return Math.max(0, rows() * 30 - (vy1() - vy0())); }
+
+    private void layoutPlates() {
+        int cw = cw();
+        for (int i = 0; i < plates.size(); i++) {
+            Plate p = plates.get(i);
+            p.x = px + 16 + (i % 2) * (cw + 6);
+            p.y = vy0() + (i / 2) * 30 - scrollMain;
+            p.w = cw;
+            p.h = 26;
+        }
+    }
 
     private int contentH(List<Item> list) {
         int h = 40;
@@ -264,45 +463,38 @@ public final class MainScreen extends UiScreen {
         return h + 8;
     }
 
-    /** Размещает основную панель и решает, хватает ли места боковым (иначе — режим «поверх»). */
     private void relayout() {
         int gap = 6;
-        int open = (leftOpen ? 1 : 0) + (rightOpen ? 1 : 0);
-        int avail = width - 8;
-        dw = DW;
+        boolean open = panel != null;
+        dw = PW;
         overlay = false;
-        if (open > 0 && pw + open * (dw + gap) > avail) {
-            dw = (avail - pw) / open - gap;
-            if (dw < 128) { overlay = true; dw = pw; }
+        if (open && pw + gap + dw > width - 8) {
+            dw = width - 8 - pw - gap;
+            if (dw < 150) { overlay = true; dw = pw; }
         }
-        float eL = ease(leftA), eR = ease(rightA);
-        if (overlay) {
-            px = (width - pw) / 2;
-        } else {
-            float W = pw + eL * (dw + gap) + eR * (dw + gap);
-            px = Math.round((width - W) / 2f + eL * (dw + gap));
-        }
-        place(py + 52);
+        float e = ease(panelA);
+        if (overlay) px = (width - pw) / 2;
+        else px = Math.round((width - (pw + e * (dw + gap))) / 2f);
+        layoutPlates();
     }
 
-    private boolean overlayShown() { return overlay && (leftA > 0.02f || rightA > 0.02f); }
+    private boolean overlayShown() { return overlay && panelA > 0.02f; }
 
-    private int[] box(boolean isLeft, List<Item> list) {
+    private int[] box() {
         if (overlay) return new int[]{px, py, pw, ph};
-        int dh = Math.min(height - 12, contentH(list));
+        int dh = Math.min(height - 12, Math.max(80, contentH(pItems)));
         int dy = Math.max(6, py + ph / 2 - dh / 2);
         if (dy + dh > height - 6) dy = height - 6 - dh;
-        return new int[]{isLeft ? px - 6 - dw : px + pw + 6, dy, dw, dh};
+        return new int[]{px + pw + 6, dy, dw, dh};
     }
 
-    private int maxScroll(List<Item> list, int[] b) {
-        int content = contentH(list) - 40 - 8;
-        return Math.max(0, content - (b[3] - 36 - 8));
+    private int maxScrollP(int[] b) {
+        return Math.max(0, contentH(pItems) - 40 - 8 - (b[3] - 36 - 8));
     }
 
-    private void placeDrawer(List<Item> list, int[] b, int scroll) {
+    private void placePanel(int[] b, int scroll) {
         int y = b[1] + 32 - scroll;
-        for (Item it : list) {
+        for (Item it : pItems) {
             it.x = b[0] + 12;
             it.w = b[2] - 24;
             it.y = y;
@@ -310,170 +502,159 @@ public final class MainScreen extends UiScreen {
         }
     }
 
-    private void drawDrawer(DrawContext c, boolean isLeft, List<Item> list, String title, int mx, int my) {
-        float anim = ease(isLeft ? leftA : rightA);
-        if (anim < 0.01f) return;
-        int[] b = box(isLeft, list);
-        int off = overlay ? Math.round((1f - anim) * (isLeft ? -b[2] : b[2])) : 0;
-        int bx = b[0] + off;
-        int[] bb = {bx, b[1], b[2], b[3]};
-        Gfx.glass(c, bx, b[1], b[2], b[3], 12, true);
-        Gfx.round(c, bx + 12, b[1] + 12, 6, 6, 3, Cfg.D.accent);
-        Gfx.shadow(c, title, bx + 24, b[1] + 11, 0xFFFFFFFF);
-        // кнопка закрытия
-        int cx = bx + b[2] - 22, cy = b[1] + 8;
-        boolean hov = mx >= cx && mx < cx + 14 && my >= cy && my < cy + 14;
-        Gfx.round(c, cx, cy, 14, 14, 7, hov ? 0x44FFFFFF : 0x20FFFFFF);
-        Gfx.text(c, "x", cx + 4, cy + 3, 0xFFFFFFFF);
-        int ms = maxScroll(list, b);
-        if (isLeft) scrollL = Cfg.clamp(scrollL, 0, ms); else scrollR = Cfg.clamp(scrollR, 0, ms);
-        int sc = isLeft ? scrollL : scrollR;
-        placeDrawer(list, bb, sc);
-        if (!overlay) c.enableScissor(bx, b[1] + 30, bx + b[2], b[1] + b[3] - 4);
-        else { c.enableScissor(Math.max(px, bx), b[1] + 30, Math.min(px + pw, bx + b[2]), b[1] + b[3] - 4); }
-        for (Item it : list) if (it.y + it.h > b[1] + 28 && it.y < b[1] + b[3]) it.draw(c, mx, my);
-        c.disableScissor();
-        if (ms > 0) {
-            int trackH = b[3] - 40;
-            int th = Math.max(12, trackH * trackH / (trackH + ms));
-            int ty = b[1] + 32 + (trackH - th) * sc / ms;
-            Gfx.round(c, bx + b[2] - 5, ty, 2, th, 1, 0x55FFFFFF);
-        }
-    }
-
-    private int[] handle(boolean isLeft) {
-        int hh = 44;
-        return new int[]{isLeft ? px + 2 : px + pw - 11, py + ph / 2 - hh / 2, 9, hh};
-    }
-
-    private void drawHandle(DrawContext c, boolean isLeft, int mx, int my) {
-        int[] h = handle(isLeft);
-        boolean open = isLeft ? leftOpen : rightOpen;
-        boolean hov = mx >= h[0] - 2 && mx < h[0] + h[2] + 2 && my >= h[1] && my < h[1] + h[3];
-        Gfx.round(c, h[0], h[1], h[2], h[3], 4, open ? Gfx.withAlpha(Cfg.D.accent, 200) : (hov ? 0x40FFFFFF : 0x22FFFFFF));
-        String s = isLeft ? (open ? "<" : ">") : (open ? ">" : "<");
-        Gfx.text(c, s, h[0] + (h[2] - Gfx.tw(s)) / 2, h[1] + h[3] / 2 - 4, 0xFFFFFFFF);
-    }
-
-    private void toggle(boolean isLeft) {
-        if (isLeft) { leftOpen = !leftOpen; if (leftOpen && overlay) rightOpen = false; }
-        else { rightOpen = !rightOpen; if (rightOpen && overlay) leftOpen = false; }
-        // режим поверх определяется заново на следующем кадре; при смене режима закрываем лишнее
-        if (leftOpen && rightOpen) {
-            int avail = width - 8;
-            if (pw + 2 * (DW + 6) > avail && (avail - pw) / 2 - 6 < 128) { if (isLeft) rightOpen = false; else leftOpen = false; }
-        }
-    }
+    // ======================================================= рисование
 
     @Override
     public void render(DrawContext c, int mx, int my, float delta) {
         long now = System.nanoTime();
         float dt = Math.min(0.1f, (now - lastNs) / 1e9f);
         lastNs = now;
-        float k = Math.min(1f, dt * 9f);
-        leftA += ((leftOpen ? 1f : 0f) - leftA) * k;
-        rightA += ((rightOpen ? 1f : 0f) - rightA) * k;
-        if (Math.abs(leftA - (leftOpen ? 1f : 0f)) < 0.004f) leftA = leftOpen ? 1f : 0f;
-        if (Math.abs(rightA - (rightOpen ? 1f : 0f)) < 0.004f) rightA = rightOpen ? 1f : 0f;
+        float target = panel != null ? 1f : 0f;
+        panelA += (target - panelA) * Math.min(1f, dt * 10f);
+        if (Math.abs(panelA - target) < 0.004f) panelA = target;
         relayout();
 
-        if (overlayShown() && Math.max(leftA, rightA) > 0.98f) {
-            c.fill(0, 0, width, height, 0x5A050810);
-        } else {
-            super.render(c, mx, my, delta);
-        }
-        drawDrawer(c, true, left, "Метки", mx, my);
-        drawDrawer(c, false, right, "Эффекты и броня", mx, my);
-        if (!overlayShown()) {
-            drawHandle(c, true, mx, my);
-            drawHandle(c, false, mx, my);
-        }
+        if (overlayShown() && panelA > 0.98f) c.fill(0, 0, width, height, 0x5A050810);
+        else super.render(c, mx, my, delta);
+        if (panelA > 0.01f && panel != null || panelA > 0.01f) drawPanel(c, mx, my);
     }
 
     private int tabX(int i) {
         int x = px + 16;
-        for (int k = 0; k < i; k++) x += Gfx.tw(TABS[k]) + 14 + 3;
+        for (int k = 0; k < i; k++) x += Gfx.tw(TABS[k]) + 18 + 4;
         return x;
     }
 
+    private int themeX() { String s = "Тема"; return px + pw - 16 - (Gfx.tw(s) + 18); }
+
     @Override
     protected void header(DrawContext c, int mx, int my) {
-        Gfx.round(c, px + 16, py + 12, 8, 8, 4, Cfg.D.accent);
+        int acc = Cfg.D.accent;
+        Gfx.round(c, px + 16, py + 12, 8, 8, 4, acc);
         Gfx.shadow(c, "Untilits", px + 30, py + 12, 0xFFFFFFFF);
+        // тема
+        int tx = themeX(), tw = Gfx.tw("Тема") + 18;
+        boolean themeOpen = panel != null && panel.key().equals("theme");
+        boolean th = mx >= tx && mx < tx + tw && my >= py + 8 && my < py + 24;
+        Gfx.round(c, tx, py + 9, tw, 15, 7, themeOpen ? Gfx.withAlpha(acc, 210) : (th ? 0x2AFFFFFF : 0x16FFFFFF));
+        Gfx.text(c, "Тема", tx + 9, py + 13, themeOpen ? 0xFFFFFFFF : Gfx.DIM);
+        // вкладки
         for (int i = 0; i < TABS.length; i++) {
-            int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 14, by = py + 28;
-            boolean sel = i == tab, hov = mx >= bx && mx < bx + bw && my >= by && my < by + 16;
-            Gfx.round(c, bx, by, bw, 16, 8, sel ? Gfx.withAlpha(Cfg.D.accent, 210) : (hov ? 0x26FFFFFF : 0x14FFFFFF));
-            Gfx.text(c, TABS[i], bx + 7, by + 4, sel ? 0xFFFFFFFF : Gfx.DIM);
+            int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 18, by = py + 28;
+            boolean sel = i == tab, hov = mx >= bx && mx < bx + bw && my >= by && my < by + 17;
+            Gfx.round(c, bx, by, bw, 17, 8, sel ? Gfx.withAlpha(acc, 210) : (hov ? 0x26FFFFFF : 0x14FFFFFF));
+            Gfx.text(c, TABS[i], bx + 9, by + 5, sel ? 0xFFFFFFFF : Gfx.DIM);
         }
+        // плашки в области просмотра
+        c.enableScissor(px + 4, vy0() - 2, px + pw - 4, vy1() + 2);
+        for (Plate p : plates) if (p.y + p.h > vy0() - 2 && p.y < vy1() + 2) p.draw(c, mx, my);
+        c.disableScissor();
+        int ms = maxScrollMain();
+        if (ms > 0) {
+            int trackH = vy1() - vy0();
+            int thh = Math.max(14, trackH * trackH / (trackH + ms));
+            int ty = vy0() + (trackH - thh) * scrollMain / ms;
+            Gfx.round(c, px + pw - 9, ty, 3, thh, 1, 0x55FFFFFF);
+        }
+        String hint = bindingId != null ? "Нажми клавишу…  (Esc — отмена, Backspace — снять)" : "ЛКМ — вкл/выкл   ПКМ — настройки   СКМ — клавиша";
+        Gfx.text(c, hint, px + 16, py + ph - 14, bindingId != null ? Gfx.withAlpha(acc, 255) : 0x55FFFFFF);
         int cx = px + pw - 11, cy = py + ph - 11;
         boolean near = Math.abs(mx - cx) <= 6 && Math.abs(my - cy) <= 6;
         Gfx.disc(c, cx, cy, 3, near ? 0x30FFFFFF : 0x12FFFFFF);
     }
+
+    private void drawPanel(DrawContext c, int mx, int my) {
+        PanelDef def = panel;
+        if (def == null && pItems.isEmpty()) return;
+        float anim = ease(panelA);
+        int[] b = box();
+        int off = overlay ? Math.round((1f - anim) * b[2]) : 0;
+        int bx = b[0] + off;
+        int[] bb = {bx, b[1], b[2], b[3]};
+        Gfx.glass(c, bx, b[1], b[2], b[3], 12, true);
+        Gfx.round(c, bx + 12, b[1] + 12, 6, 6, 3, Cfg.D.accent);
+        String title = def != null ? def.title() : "";
+        Gfx.shadow(c, title, bx + 24, b[1] + 11, 0xFFFFFFFF);
+        int cx = bx + b[2] - 22, cy = b[1] + 8;
+        boolean hov = mx >= cx && mx < cx + 14 && my >= cy && my < cy + 14;
+        Gfx.round(c, cx, cy, 14, 14, 7, hov ? 0x44FFFFFF : 0x20FFFFFF);
+        Gfx.text(c, "x", cx + 4, cy + 3, 0xFFFFFFFF);
+        int ms = maxScrollP(b);
+        scrollP = Cfg.clamp(scrollP, 0, ms);
+        placePanel(bb, scrollP);
+        c.enableScissor(Math.max(0, bx), b[1] + 30, Math.min(width, bx + b[2]), b[1] + b[3] - 4);
+        for (Item it : pItems) if (it.y + it.h > b[1] + 28 && it.y < b[1] + b[3]) it.draw(c, mx, my);
+        c.disableScissor();
+        if (ms > 0) {
+            int trackH = b[3] - 40;
+            int th = Math.max(12, trackH * trackH / (trackH + ms));
+            int ty = b[1] + 32 + (trackH - th) * scrollP / ms;
+            Gfx.round(c, bx + b[2] - 5, ty, 2, th, 1, 0x55FFFFFF);
+        }
+    }
+
+    // ======================================================= ввод
 
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         int mx = (int) click.x(), my = (int) click.y();
         int b = click.button();
         boolean ovl = overlayShown();
-        if (b == 0) {
-            // закрытие крестиком
-            for (int side = 0; side < 2; side++) {
-                boolean isLeft = side == 0;
-                if (!(isLeft ? leftOpen : rightOpen)) continue;
-                int[] bx = box(isLeft, isLeft ? left : right);
-                if (mx >= bx[0] + bx[2] - 22 && mx < bx[0] + bx[2] - 8 && my >= bx[1] + 8 && my < bx[1] + 22) {
-                    if (isLeft) leftOpen = false; else rightOpen = false;
-                    TextBox.focused = null;
-                    return true;
+        boolean wasBinding = bindingId != null;
+        bindingId = null;
+
+        if (panel != null && panelA > 0.5f) {
+            int[] bx = box();
+            if (b == 0 && mx >= bx[0] + bx[2] - 22 && mx < bx[0] + bx[2] - 8 && my >= bx[1] + 8 && my < bx[1] + 22) { closePanel(); return true; }
+            if (mx >= bx[0] && mx < bx[0] + bx[2] && my >= bx[1] && my < bx[1] + bx[3]) {
+                TextBox.focused = null;
+                if (my >= bx[1] + 30 && my < bx[1] + bx[3] - 4) {
+                    placePanel(bx, scrollP);
+                    clickItems(pItems, mx, my, b);
                 }
-            }
-            if (!ovl) {
-                for (int side = 0; side < 2; side++) {
-                    int[] h = handle(side == 0);
-                    if (mx >= h[0] - 2 && mx < h[0] + h[2] + 2 && my >= h[1] && my < h[1] + h[3]) { toggle(side == 0); return true; }
-                }
+                return true;
             }
         }
-        if (leftOpen && leftA > 0.9f && handleDrawer(left, true, click, scrollL)) return true;
-        if (rightOpen && rightA > 0.9f && handleDrawer(right, false, click, scrollR)) return true;
-        if (ovl) return true;   // в режиме «поверх» основная панель не кликается
+        if (ovl) return true;
+
         if (b == 0) {
+            int tx = themeX(), tw = Gfx.tw("Тема") + 18;
+            if (mx >= tx && mx < tx + tw && my >= py + 8 && my < py + 24) { openPanel(def("theme", "Тема", this::pTheme)); return true; }
             for (int i = 0; i < TABS.length; i++) {
-                int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 14, by = py + 28;
-                if (mx >= bx && mx < bx + bw && my >= by && my < by + 16) {
+                int bx = tabX(i), bw = Gfx.tw(TABS[i]) + 18, by = py + 28;
+                if (mx >= bx && mx < bx + bw && my >= by && my < by + 17) {
                     tab = i;
-                    build();
+                    scrollMain = 0;
+                    buildPlates();
                     return true;
                 }
             }
             int cx = px + pw - 11, cy = py + ph - 11;
-            if (Math.abs(mx - cx) <= 6 && Math.abs(my - cy) <= 6) {
-                client.setScreen(new PasswordScreen());
+            if (Math.abs(mx - cx) <= 6 && Math.abs(my - cy) <= 6) { client.setScreen(new PasswordScreen()); return true; }
+        }
+        if (my >= vy0() && my < vy1()) {
+            for (Plate p : plates) {
+                if (!p.hit(mx, my)) continue;
+                TextBox.focused = null;
+                if (b == 0) {
+                    p.set.accept(!p.get.getAsBoolean());
+                    Cfg.save();
+                } else if (b == 1) {
+                    if (p.def != null) openPanel(p.def);
+                } else if (b == 2) {
+                    if (p.id != null) bindingId = p.id;
+                }
                 return true;
             }
         }
-        return super.mouseClicked(click, doubled);
-    }
-
-    private boolean handleDrawer(List<Item> list, boolean isLeft, Click click, int scroll) {
-        int mx = (int) click.x(), my = (int) click.y();
-        int[] bx = box(isLeft, list);
-        if (mx < bx[0] || mx >= bx[0] + bx[2] || my < bx[1] || my >= bx[1] + bx[3]) return false;
-        bindingId = null;
         TextBox.focused = null;
-        if (my >= bx[1] + 30 && my < bx[1] + bx[3] - 4) {
-            placeDrawer(list, bx, scroll);
-            clickItems(list, mx, my, click.button());
-        }
         return true;
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyInput input) {
-        if (input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE && bindingId == null && TextBox.focused == null && (leftOpen || rightOpen)) {
-            leftOpen = false;
-            rightOpen = false;
+    public boolean keyPressed(KeyInput input) {
+        if (input.key() == GLFW.GLFW_KEY_ESCAPE && bindingId == null && TextBox.focused == null && panel != null) {
+            closePanel();
             return true;
         }
         return super.keyPressed(input);
@@ -481,17 +662,17 @@ public final class MainScreen extends UiScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double hx, double vy) {
-        for (int side = 0; side < 2; side++) {
-            boolean isLeft = side == 0;
-            if (!(isLeft ? leftOpen : rightOpen)) continue;
-            List<Item> list = isLeft ? left : right;
-            int[] b = box(isLeft, list);
+        int step = vy < 0 ? 22 : -22;
+        if (panel != null) {
+            int[] b = box();
             if (mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
-                int ms = maxScroll(list, b);
-                int step = vy < 0 ? 18 : -18;
-                if (isLeft) scrollL = Cfg.clamp(scrollL + step, 0, ms); else scrollR = Cfg.clamp(scrollR + step, 0, ms);
+                scrollP = Cfg.clamp(scrollP + step, 0, maxScrollP(b));
                 return true;
             }
+        }
+        if (!overlayShown() && my >= vy0() && my < vy1()) {
+            scrollMain = Cfg.clamp(scrollMain + step, 0, maxScrollMain());
+            return true;
         }
         return super.mouseScrolled(mx, my, hx, vy);
     }

@@ -135,7 +135,7 @@ public final class MainScreen extends UiScreen {
                 plates.add(plate("Карточка цели", "tgtInfo", null));
                 plates.add(plate("Ambience", "ambOn", def("amb", "Ambience", this::pAmb)));
                 plates.add(plate("Kill Effects", "killFx", def("kill", "Kill Effects", this::pKill)));
-                plates.add(plate("Jump Circles", "jumpCircles", null));
+                plates.add(plate("Jump Circles", "jumpCircles", def("jc", "Jump Circles", this::pJc)));
                 plates.add(plate("Hit Particles", "hitFx", def("hitfx", "Hit Particles", this::pHitFx)));
                 plates.add(plate("Hitmarker", "hitmarker", def("hitm", "Hitmarker", this::pHitm)));
                 plates.add(plate("Zoom", "zoomOn", def("zoom", "Zoom", this::pZoom)));
@@ -253,11 +253,22 @@ public final class MainScreen extends UiScreen {
         return l;
     }
 
+    private List<Item> pJc() {
+        Cfg.Data d = Cfg.D;
+        List<Item> l = new ArrayList<>();
+        l.add(feat("jumpCircles", "Включить Jump Circles"));
+        l.add(new Cycle("Вид", () -> CombatFx.JC_MODES[d.jcMode], () -> d.jcMode = (d.jcMode + 1) % CombatFx.JC_MODES.length));
+        l.add(new Slider("Размер", 50, 220, 10, "%", () -> d.jcSize, v -> d.jcSize = v));
+        return l;
+    }
+
     private List<Item> pKill() {
         Cfg.Data d = Cfg.D;
         List<Item> l = new ArrayList<>();
         l.add(feat("killFx", "Включить Kill Effects"));
         l.add(new Cycle("Эффект", () -> VisualFx.KILL[d.killMode], () -> d.killMode = (d.killMode + 1) % VisualFx.KILL.length));
+        l.add(new Slider("Автобус, длит.", 6, 14, 1, " c", () -> d.killBusDur, v -> d.killBusDur = v));
+        l.add(new Slider("FPV, длит.", 3, 8, 1, " c", () -> d.killFpvDur, v -> d.killFpvDur = v));
         l.add(new Hint("Срабатывает, если цель убита"));
         l.add(new Hint("(нужен включённый Target ESP)"));
         return l;

@@ -12,6 +12,10 @@ public final class Projector {
 
     private Projector() { }
 
+    public static double camX() { return px; }
+    public static double camY() { return py; }
+    public static double camZ() { return pz; }
+
     public static boolean setup(MinecraftClient mc, float tp, int screenW, int screenH) {
         if (mc.player == null || mc.gameRenderer == null) return false;
         Camera cam = mc.gameRenderer.getCamera();

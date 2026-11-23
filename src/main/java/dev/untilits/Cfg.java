@@ -123,7 +123,8 @@ public final class Cfg {
         public boolean cdOn, cdHeal = true;
         public int cdScale = 100;
         public boolean killFx;
-        public int killMode;
+        public int killMode, killBusDur = 9, killFpvDur = 5;
+        public int jcMode, jcSize = 100;
 
         public String pass = "";
     }
@@ -170,6 +171,10 @@ public final class Cfg {
         D.ambWeather = clamp(D.ambWeather, 0, 3);
         D.cdScale = clamp(D.cdScale, 50, 200);
         D.killMode = clamp(D.killMode, 0, 6);
+        D.killBusDur = clamp(D.killBusDur, 6, 14);
+        D.killFpvDur = clamp(D.killFpvDur, 3, 8);
+        D.jcMode = clamp(D.jcMode, 0, 5);
+        D.jcSize = clamp(D.jcSize, 50, 220);
         D.ambTint = clamp(D.ambTint, 0, 7);
         D.weakHp = clamp(D.weakHp, 1, 20);
         D.chestRange = clamp(D.chestRange, 8, 128);

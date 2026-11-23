@@ -26,6 +26,7 @@ public final class VisualFx {
     private static LivingEntity watched;
     private static boolean fired;
     private static double kx, ky, kz;
+    private static final java.util.Set<java.util.UUID> DEAD = new java.util.HashSet<>();
     private static long kAt;
     private static long thunderAt;
 
@@ -64,6 +65,15 @@ public final class VisualFx {
                 fired = true;
                 boom(mc, watched);
             }
+            if (Cfg.D.killMode >= 5 && mc.world != null) {
+                for (var pl : mc.world.getPlayers()) {
+                    if (pl == mc.player || pl == watched) continue;
+                    if ((pl.isDead() || pl.getHealth() <= 0f) && pl.squaredDistanceTo(mc.player) < 40 * 40 && DEAD.add(pl.getUuid())) {
+                        boom(mc, pl);
+                    }
+                }
+                if (DEAD.size() > 200) DEAD.clear();
+            }
         }
     }
 
@@ -78,7 +88,11 @@ public final class VisualFx {
     private static void boom(MinecraftClient mc, LivingEntity e) {
         double x = e.getX(), y = e.getY(), z = e.getZ();
         int m = Cfg.D.killMode;
-        if (m >= 3) { kx = x; ky = y; kz = z; kAt = System.currentTimeMillis(); }
+        if (m >= 3 && m <= 4) { kx = x; ky = y; kz = z; kAt = System.currentTimeMillis(); }
+        if (m == 5 || m == 6) {
+            double yaw = Math.toRadians(mc.player != null ? mc.player.getYaw() : 0) + Math.PI / 2;
+            Kill3D.start(m == 5, x, y, z, yaw);
+        }
         Notif.push("Цель убита", true);
         if (m == 0 || m == 2) {
             LightningEntity l = new LightningEntity(EntityType.LIGHTNING_BOLT, mc.world);
@@ -127,10 +141,10 @@ public final class VisualFx {
 
     /** Астрал: расширяющееся кольцо и поднимающиеся огоньки на месте смерти (в проекции). */
     public static void renderWorld(DrawContext c, MinecraftClient mc, float tp) {
-        if (!Cfg.D.killFx || Cfg.D.killMode < 3 || kAt == 0) return;
+        if (!Cfg.D.killFx) return;
+        Kill3D.render(c, mc);
+        if (Cfg.D.killMode < 3 || Cfg.D.killMode > 4 || kAt == 0) return;
         long age = System.currentTimeMillis() - kAt;
-        if (Cfg.D.killMode == 5) { bus(c, age); return; }
-        if (Cfg.D.killMode == 6) { fpv(c, age); return; }
         if (age > 2600) return;
         float f = age / 2600f, a = 1f - f;
         float[] P = TargetEsp.P;

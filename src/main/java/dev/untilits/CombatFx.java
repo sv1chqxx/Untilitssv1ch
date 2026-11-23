@@ -14,6 +14,7 @@ import java.util.List;
 
 /** Jump Circles, Hit Particles, Hitmarker (+звук), Zoom, FreeLook. */
 public final class CombatFx {
+    public static final String[] JC_MODES = {"Кольца", "Волны", "Звезда", "Спираль", "Искры", "Радуга"};
     public static final String[] HIT_MODES = {"Криты", "Искры", "Сердца", "Души"};
     public static final String[] SOUNDS = {"Выкл", "Дзынь", "Колокол", "Пинг", "Хруст"};
 
@@ -101,27 +102,60 @@ public final class CombatFx {
         long now = System.currentTimeMillis();
         CIRCLES.removeIf(k -> now - k.at > 1000);
         int col = Cfg.D.accent;
+        int mode = Cfg.D.jcMode;
+        double sc = Cfg.D.jcSize / 100.0;
         for (Circle k : CIRCLES) {
             float f = (now - k.at) / 1000f;
-            double r = 0.3 + f * 1.8;
             int a = (int) (230 * (1f - f));
-            int n = 32;
-            float px = 0, py = 0;
-            boolean prev = false;
-            for (int i = 0; i <= n; i++) {
-                double ang = i * Math.PI * 2 / n;
-                boolean ok = Projector.project(k.x + Math.cos(ang) * r, k.y, k.z + Math.sin(ang) * r, P);
-                if (ok && prev) TargetEsp.seg(c, px, py, P[0], P[1], Gfx.withAlpha(col, a));
-                px = P[0]; py = P[1]; prev = ok;
+            switch (mode) {
+                case 0 -> { ring(c, k, (0.3 + f * 1.8) * sc, 32, Gfx.withAlpha(col, a), 0); ring(c, k, (0.3 + f * 1.8) * 0.7 * sc, 32, Gfx.withAlpha(col, a / 3), 0); }
+                case 1 -> { for (int j = 0; j < 3; j++) { float g = f - j * 0.12f; if (g > 0) ring(c, k, (0.2 + g * 2.2) * sc, 32, Gfx.withAlpha(col, (int) (230 * (1f - g))), 0); } }
+                case 2 -> { // вращающийся полигон-звезда
+                    double r = (0.5 + f * 1.4) * sc;
+                    for (int i = 0; i < 5; i++) {
+                        double a1 = f * 4 + i * Math.PI * 2 / 5, a2 = f * 4 + ((i + 2) % 5) * Math.PI * 2 / 5;
+                        if (Projector.project(k.x + Math.cos(a1) * r, k.y, k.z + Math.sin(a1) * r, P)) {
+                            float x1 = P[0], y1 = P[1];
+                            if (Projector.project(k.x + Math.cos(a2) * r, k.y, k.z + Math.sin(a2) * r, P)) TargetEsp.seg(c, x1, y1, P[0], P[1], Gfx.withAlpha(col, a));
+                        }
+                    }
+                    ring(c, k, r, 32, Gfx.withAlpha(col, a / 2), 0);
+                }
+                case 3 -> { // спираль вверх
+                    float px = 0, py = 0; boolean prev = false;
+                    for (int i = 0; i <= 48; i++) {
+                        double ang = i * Math.PI * 2 * 2 / 48 + f * 6, h = i / 48.0 * (0.3 + f * 1.6);
+                        boolean ok = Projector.project(k.x + Math.cos(ang) * 0.9 * sc, k.y + h, k.z + Math.sin(ang) * 0.9 * sc, P);
+                        if (ok && prev) TargetEsp.seg(c, px, py, P[0], P[1], Gfx.withAlpha(col, a));
+                        px = P[0]; py = P[1]; prev = ok;
+                    }
+                }
+                case 4 -> { // искры по кругу
+                    double r = (0.4 + f * 1.6) * sc;
+                    for (int i = 0; i < 16; i++) {
+                        double ang = i * Math.PI * 2 / 16 + f * 2;
+                        if (!Projector.project(k.x + Math.cos(ang) * r, k.y + f * 0.4, k.z + Math.sin(ang) * r, P)) continue;
+                        float ppb = TargetEsp.pxPerBlock(k.x, k.y, k.z);
+                        TargetEsp.spr(c, "glow", P[0], P[1], ppb * 0.35f, 0, Gfx.withAlpha(col, a));
+                    }
+                }
+                default -> { // радужное кольцо
+                    ring(c, k, (0.3 + f * 1.8) * sc, 48, Gfx.withAlpha(0xFFFFFF, a), 1);
+                }
             }
-            double r2 = r * 0.7;
-            prev = false;
-            for (int i = 0; i <= n; i++) {
-                double ang = i * Math.PI * 2 / n;
-                boolean ok = Projector.project(k.x + Math.cos(ang) * r2, k.y, k.z + Math.sin(ang) * r2, P);
-                if (ok && prev) TargetEsp.seg(c, px, py, P[0], P[1], Gfx.withAlpha(col, a / 3));
-                px = P[0]; py = P[1]; prev = ok;
-            }
+        }
+    }
+
+    private static void ring(DrawContext c, Circle k, double r, int n, int color, int rainbow) {
+        float px = 0, py = 0;
+        boolean prev = false;
+        for (int i = 0; i <= n; i++) {
+            double ang = i * Math.PI * 2 / n;
+            boolean ok = Projector.project(k.x + Math.cos(ang) * r, k.y, k.z + Math.sin(ang) * r, P);
+            int col = color;
+            if (rainbow == 1) col = Gfx.withAlpha(Gfx.hsv(i / (float) n, 0.8f, 1f), color >>> 24);
+            if (ok && prev) TargetEsp.seg(c, px, py, P[0], P[1], col);
+            px = P[0]; py = P[1]; prev = ok;
         }
     }
 

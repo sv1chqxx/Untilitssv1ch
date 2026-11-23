@@ -154,18 +154,18 @@ public final class TargetEsp {
     }
 
     private static void bloom(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
-        int count = Math.min(64, n * 4 + 8);
+        int count = Math.min(48, n * 3 + 6);
         for (int i = 0; i < count; i++) {
-            float ph = (time * (0.35f + rnd(i, 1) * 0.3f) + rnd(i, 2)) % 1f;
-            double ang = rnd(i, 3) * Math.PI * 2 + time * 0.3;
-            double rr = (w * 0.5 + 0.15 + ph * (0.9 + rnd(i, 4) * 0.6)) * size;
-            double yy = p.y + h * (0.15 + rnd(i, 5) * 0.75) + ph * 0.5;
+            float ph = (time * (0.18f + rnd(i, 1) * 0.16f) + rnd(i, 2)) % 1f;
+            double ang = rnd(i, 3) * Math.PI * 2 + time * 0.25 * (rnd(i, 9) > 0.5f ? 1 : -1);
+            double rr = (w * 0.45 + 0.1 + ph * (0.7 + rnd(i, 4) * 0.8)) * size;
+            double yy = p.y + h * (0.1 + rnd(i, 5) * 0.8) + ph * 0.6 - 0.2;
             if (!Projector.project(p.x + Math.cos(ang) * rr, yy, p.z + Math.sin(ang) * rr, P)) continue;
             float ppb = pxPerBlock(p.x, yy, p.z);
             float al = (float) Math.sin(ph * Math.PI);
-            float s = ppb * (0.22f + rnd(i, 6) * 0.2f) * size * (1f - ph * 0.4f);
-            spr(c, "bloom", P[0], P[1], s * 2f, 0, tint(hurt, rnd(i, 7) * 60f, (int) (a * al * 0.55f)));
-            spr(c, rnd(i, 8) > 0.5f ? "star4" : "bloom", P[0], P[1], s, time * 2 + i, tint(hurt, rnd(i, 7) * 60f, (int) (a * al)));
+            float s = ppb * (0.35f + rnd(i, 6) * 0.45f) * size * (1f - ph * 0.35f);
+            int base = hurt ? 0xFF6060 : Gfx.lerp(0xFFFFFFFF, Gfx.hsv(Cfg.D.tgtHue / 360f, 0.5f, 1f), 0.55f);
+            spr(c, "bloom", P[0], P[1], s, time * (rnd(i, 7) - 0.5f) * 3f, Gfx.withAlpha(base, (int) (a * al * 0.5f)));
         }
     }
 
@@ -214,22 +214,29 @@ public final class TargetEsp {
     }
 
     private static void chains(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a) {
-        double r = (w * 0.8 + 0.4) * size;
-        int seg = 12;
-        for (int ring = 0; ring < 2; ring++) {
-            double yy = p.y + h * (ring == 0 ? 0.42 : 0.74) + Math.sin(time * 2 + ring * 2) * 0.04;
-            double dir = ring == 0 ? 1 : -1;
-            for (int i = 0; i < seg; i++) {
-                double a0 = dir * time * 0.9 + i * Math.PI * 2 / seg, a1 = a0 + dir * Math.PI * 2 / seg;
-                boolean o0 = Projector.project(p.x + Math.cos(a0) * r, yy, p.z + Math.sin(a0) * r, P);
-                boolean o1 = Projector.project(p.x + Math.cos(a1) * r, yy, p.z + Math.sin(a1) * r, Q);
-                if (!o0 || !o1) continue;
-                float dx = Q[0] - P[0], dy = Q[1] - P[1];
-                float len = (float) Math.sqrt(dx * dx + dy * dy);
-                if (len < 2f || len > 200f) continue;
-                float depth = (float) (0.55 + 0.45 * Math.sin((a0 + a1) / 2 + 1.5707));
-                sprRect(c, "chain", (P[0] + Q[0]) / 2, (P[1] + Q[1]) / 2, len * 1.1f, len * 0.825f, (float) Math.atan2(dy, dx),
-                        tint(hurt, ring * 25f, (int) (a * (0.35f + 0.65f * depth))), 256, 192);
+        double r = (w * 0.62 + 0.14) * size;
+        int segs = 18;
+        int base = hurt ? 0xFF8080 : Gfx.lerp(0xFFFFFFFF, Gfx.hsv(Cfg.D.tgtHue / 360f, 0.4f, 1f), 0.2f);
+        for (int band = 0; band < 2; band++) {
+            double dir = band == 0 ? 1 : -1;
+            boolean prev = false;
+            float px = 0, py = 0;
+            double pa = 0;
+            for (int j = 0; j <= segs; j++) {
+                double u = j / (double) segs;
+                double ang = time * 0.7 * dir + dir * u * Math.PI * 1.9 + band * 1.6;
+                double yy = p.y + h * (0.12 + 0.78 * u);
+                boolean ok = Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P);
+                if (ok && prev) {
+                    float dx = P[0] - px, dy = P[1] - py;
+                    float len = (float) Math.sqrt(dx * dx + dy * dy);
+                    if (len > 2f && len < 220f) {
+                        float depth = (float) (0.5 + 0.5 * Math.sin((ang + pa) / 2 + 1.5707));
+                        sprRect(c, "chain", (P[0] + px) / 2, (P[1] + py) / 2, len * 1.12f, len * 0.84f, (float) Math.atan2(dy, dx),
+                                Gfx.withAlpha(base, (int) (a * (0.3f + 0.7f * depth))), 256, 192);
+                    }
+                }
+                px = P[0]; py = P[1]; pa = ang; prev = ok;
             }
         }
     }
@@ -275,34 +282,41 @@ public final class TargetEsp {
 
     private static void lightning(DrawContext c, Vec3d p, double w, double h, float size, float time, boolean hurt, int a, int n) {
         Cfg.Data d = Cfg.D;
-        double r = (w * 0.85 + 0.55) * size;
-        for (int i = 0; i < n; i++) {
-            double ang = time * 0.9 + i * Math.PI * 2 / n;
-            double yy = p.y + h * (0.35 + 0.6 * rnd(i, 1)) + Math.sin(time * 2.1 + i) * 0.1;
-            if (!Projector.project(p.x + Math.cos(ang) * r, yy, p.z + Math.sin(ang) * r, P)) continue;
-            float ppb = pxPerBlock(p.x, yy, p.z);
-            float fl = (float) Math.pow(0.5 + 0.5 * Math.sin(time * 7 + i * 2.7), 2);
-            float s = ppb * 0.62f * size * (0.85f + 0.3f * fl);
-            int al = (int) (a * (0.45f + 0.55f * fl));
-            glow(c, P[0], P[1], s * 2.4f, tint(hurt, i * 12f, al / 2));
-            spr(c, "bolt", P[0], P[1], s, (float) Math.sin(time * 3 + i) * 0.25f, tint(hurt, i * 12f, al));
-            spr(c, "bolt", P[0], P[1], s * 0.5f, (float) Math.sin(time * 3 + i) * 0.25f, Gfx.withAlpha(0xFFFFFF, al));
+        long frame = System.currentTimeMillis() / 70;
+        double r = (w * 0.75 + 0.3) * size;
+        int arcs = Math.max(2, Math.min(12, n));
+        for (int i = 0; i < arcs; i++) {
+            if (rnd((int) frame, i + 31) < 0.3f) continue;   // мерцание
+            double base = rnd(i, 1) * Math.PI * 2 + time * 0.4;
+            int pts = 9;
+            float px = 0, py = 0;
+            boolean prev = false;
+            for (int k = 0; k <= pts; k++) {
+                double f = k / (double) pts;
+                double jit = (rnd((int) frame * 13 + i, k + 5) - 0.5) * 0.55;
+                double rr = r * (0.8 + (rnd((int) frame * 7 + i, k + 40) - 0.5) * 0.6);
+                double ang = base + jit;
+                double yy = p.y + h + 0.5 - f * (h + 0.5);
+                boolean ok = Projector.project(p.x + Math.cos(ang) * rr, yy, p.z + Math.sin(ang) * rr, P);
+                if (ok && prev) {
+                    seg(c, px - 1, py, P[0] - 1, P[1], tint(hurt, i * 10f, a / 4));
+                    seg(c, px + 1, py, P[0] + 1, P[1], tint(hurt, i * 10f, a / 4));
+                    seg(c, px, py, P[0], P[1], Gfx.withAlpha(0xFFFFFF, a));
+                }
+                px = P[0]; py = P[1]; prev = ok;
+            }
         }
-        // вспышка-удар над головой
+        double top = p.y + h + 0.3;
+        if (Projector.project(p.x, top, p.z, P)) {
+            float ppb = pxPerBlock(p.x, top, p.z);
+            float fl = (float) Math.pow(0.5 + 0.5 * Math.sin(time * 9), 2);
+            glow(c, P[0], P[1], ppb * 1.6f * size, tint(hurt, 0, (int) (a * (0.25f + 0.35f * fl))));
+        }
         float cyc = (time / 3.3f) % 1f;
-        if (cyc < 0.09f) {
+        if (cyc < 0.09f && d.tgtLFlash) {
             float f = cyc / 0.09f;
-            double hy = p.y + h + 1.8 - f * 1.8;
-            if (Projector.project(p.x, hy, p.z, P)) {
-                float ppb = pxPerBlock(p.x, hy, p.z);
-                int al = (int) (a * (1f - f * 0.6f));
-                glow(c, P[0], P[1], ppb * 2.2f * size, tint(hurt, 0, al / 2));
-                spr(c, "bolt", P[0], P[1], ppb * 1.6f * size, 0, Gfx.withAlpha(0xFFFFFF, al));
-            }
-            if (d.tgtLFlash) {
-                int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
-                sprRect(c, "screenglow", sw / 2f, sh / 2f, sw, sh, 0, tint(hurt, 0, (int) (110 * (1f - f))), 512, 288);
-            }
+            int sw = c.getScaledWindowWidth(), sh = c.getScaledWindowHeight();
+            sprRect(c, "screenglow", sw / 2f, sh / 2f, sw, sh, 0, tint(hurt, 0, (int) (110 * (1f - f))), 512, 288);
         }
     }
 

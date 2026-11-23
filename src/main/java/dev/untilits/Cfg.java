@@ -125,6 +125,8 @@ public final class Cfg {
         public boolean killFx;
         public int killMode, killBusDur = 9, killFpvDur = 5;
         public int jcMode, jcSize = 100;
+        public boolean aimOn, aimPlayers = true, aimMobs, aimVert = true, trigOn, trigCrit, trigPlayers = true, trigMobs;
+        public int aimRange = 35, aimFov = 60, aimStrength = 50, trigRange = 30;
 
         public String pass = "";
     }
@@ -173,6 +175,10 @@ public final class Cfg {
         D.killMode = clamp(D.killMode, 0, 6);
         D.killBusDur = clamp(D.killBusDur, 6, 14);
         D.killFpvDur = clamp(D.killFpvDur, 3, 8);
+        D.aimRange = clamp(D.aimRange, 20, 60);
+        D.aimFov = clamp(D.aimFov, 10, 180);
+        D.aimStrength = clamp(D.aimStrength, 10, 100);
+        D.trigRange = clamp(D.trigRange, 20, 60);
         D.jcMode = clamp(D.jcMode, 0, 5);
         D.jcSize = clamp(D.jcSize, 50, 220);
         D.ambTint = clamp(D.ambTint, 0, 7);

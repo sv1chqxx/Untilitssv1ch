@@ -50,6 +50,8 @@ public final class Features {
         reg("hbOn", "Hitbox ESP", () -> Cfg.D.hbOn, v -> Cfg.D.hbOn = v);
         reg("hbMobs", "Hitbox: мобы", () -> Cfg.D.hbMobs, v -> Cfg.D.hbMobs = v);
         reg("srchOn", "Block Search", () -> Cfg.D.srchOn, v -> Cfg.D.srchOn = v);
+        reg("aimOn", "AimAssist", () -> Cfg.D.aimOn, v -> Cfg.D.aimOn = v);
+        reg("trigOn", "TriggerBot", () -> Cfg.D.trigOn, v -> Cfg.D.trigOn = v);
         reg("scanOn", "Storage Scanner", () -> Cfg.D.scanOn, v -> Cfg.D.scanOn = v);
         reg("ambOn", "Ambience", () -> Cfg.D.ambOn, v -> Cfg.D.ambOn = v);
         reg("ambTimeLock", "Ambience: фикс. время", () -> Cfg.D.ambTimeLock, v -> Cfg.D.ambTimeLock = v);

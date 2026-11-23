@@ -49,6 +49,7 @@ public final class Untilits implements ClientModInitializer {
             CombatFx.lookHeld = lookKey.isPressed();
             CombatFx.tick(mc);
             Scanners.tick(mc);
+            Aim.tick(mc);
             HudModules.tick(mc);
             DamageFx.tick(mc);
             ChestEsp.tick(mc);

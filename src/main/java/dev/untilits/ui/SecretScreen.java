@@ -22,7 +22,7 @@ public final class SecretScreen extends UiScreen {
 
     public SecretScreen() { super("Скрытое меню"); }
 
-    private static final String[] TABS = {"ESP", "Tracers", "Мир", "Трап и ввод", "Друзья", "Ники и HUD", "Поиск"};
+    private static final String[] TABS = {"ESP", "Tracers", "Мир", "Трап и ввод", "Друзья", "Ники и HUD", "Поиск", "Бой"};
 
     @Override
     protected void init() {
@@ -106,6 +106,22 @@ public final class SecretScreen extends UiScreen {
                 items.add(feat("scanOn", "Storage Scanner (счётчик контейнеров)"));
                 items.add(feat("hbOn", "Hitbox ESP (3D-рамки)"));
                 items.add(feat("hbMobs", "Hitbox: и мобы"));
+            }
+            case 7 -> {
+                items.add(new Section("AimAssist — помощь при наведении (двигаешь мышь сам)"));
+                items.add(feat("aimOn", "AimAssist"));
+                items.add(new Slider("Дистанция", 20, 60, 5, " /10 бл.", () -> d.aimRange, v -> d.aimRange = v));
+                items.add(new Slider("FOV", 10, 180, 10, "°", () -> d.aimFov, v -> d.aimFov = v));
+                items.add(new Slider("Сила", 10, 100, 10, "%", () -> d.aimStrength, v -> d.aimStrength = v));
+                items.add(new Toggle("Игроки", () -> d.aimPlayers, v -> d.aimPlayers = v));
+                items.add(new Toggle("Мобы", () -> d.aimMobs, v -> d.aimMobs = v));
+                items.add(new Toggle("По вертикали", () -> d.aimVert, v -> d.aimVert = v));
+                items.add(new Section("TriggerBot — удар, когда прицел на цели"));
+                items.add(feat("trigOn", "TriggerBot"));
+                items.add(new Slider("Дистанция", 20, 60, 5, " /10 бл.", () -> d.trigRange, v -> d.trigRange = v));
+                items.add(new Toggle("Только криты", () -> d.trigCrit, v -> d.trigCrit = v));
+                items.add(new Toggle("Игроки", () -> d.trigPlayers, v -> d.trigPlayers = v));
+                items.add(new Toggle("Мобы", () -> d.trigMobs, v -> d.trigMobs = v));
             }
             default -> {
                 items.add(new Section("NameTags — ники издалека, даже у крадущихся"));

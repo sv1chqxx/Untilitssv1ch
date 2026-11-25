@@ -28,7 +28,7 @@ public final class Kill3D {
     public static void start(boolean bus, double x, double y, double z, double yaw, net.minecraft.entity.Entity victim) {
         while (SCENES.size() >= 2) SCENES.remove(0);
         java.util.UUID id = victim != null ? victim.getUuid() : null;
-        net.minecraft.entity.player.SkinTextures skin = victim instanceof net.minecraft.client.network.AbstractClientPlayerEntity ap ? ap.getSkinTextures() : null;
+        net.minecraft.entity.player.SkinTextures skin = victim instanceof net.minecraft.client.network.AbstractClientPlayerEntity ap ? ap.getSkin() : null;
         long dur = (long) ((bus ? Cfg.D.killBusDur : Cfg.D.killFpvDur) * 1000L);
         SCENES.add(new Scene(bus, x, y, z, yaw, System.currentTimeMillis(), dur, System.nanoTime() & 0xFFFF, id, skin));
     }
@@ -289,8 +289,8 @@ public final class Kill3D {
             double[] hd = corpseFrame.w(0, 1.75, 0);
             float[] o = new float[3];
             if (Projector.project(hd[0], hd[1], hd[2], o)) {
-                int sz = Math.max(6, Math.min(48, (int) (TargetEsp.pxPerBlock(hd[0], hd[1], hd[2]) * 0.5f)));
-                net.minecraft.client.gui.PlayerSkinDrawer.draw(c, s.skin, (int) o[0] - sz / 2, (int) o[1] - sz / 2, sz);
+                int fs = Math.max(6, Math.min(48, (int) (TargetEsp.pxPerBlock(hd[0], hd[1], hd[2]) * 0.5f)));
+                net.minecraft.client.gui.PlayerSkinDrawer.draw(c, s.skin, (int) o[0] - fs / 2, (int) o[1] - fs / 2, fs);
             }
         }
     }

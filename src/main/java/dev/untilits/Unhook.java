@@ -27,7 +27,7 @@ public final class Unhook {
             Kill3D.panic();
             active = true;
             var mc = net.minecraft.client.MinecraftClient.getInstance();
-            if (mc.currentScreen instanceof dev.untilits.ui.UiScreen) mc.setScreen(null);
+            if (mc.currentScreen != null && mc.currentScreen.getClass().getName().startsWith("dev.untilits")) mc.setScreen(null);
         } else {
             active = false;
             for (Map.Entry<String, Boolean> e : SAVED.entrySet()) {

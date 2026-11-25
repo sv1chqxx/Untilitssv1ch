@@ -60,7 +60,7 @@ public final class VisualFx {
         if (d.killFx) {
             LivingEntity t = lastHit;
             if (t != null && !fired && System.currentTimeMillis() - lastHitAt < 5000
-                    && (t.isDead() || t.getHealth() <= 0f) && t.getWorld() == mc.world) {
+                    && (t.isDead() || t.getHealth() <= 0f)) {
                 fired = true;
                 boom(mc, t);
             }

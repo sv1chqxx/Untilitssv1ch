@@ -11,17 +11,26 @@ import java.util.List;
 
 /** 3D-сцены убийства: автобус, из которого двое забирают тело, и FPV-дрон, влетающий в цель и взрывающийся. Рисуются полигонами по проекции. */
 public final class Kill3D {
-    private record Scene(boolean bus, double x, double y, double z, double yaw, long start, long dur, long seed) { }
+    private record Scene(boolean bus, double x, double y, double z, double yaw, long start, long dur, long seed, java.util.UUID id, net.minecraft.entity.player.SkinTextures skin) { }
     private static final List<Scene> SCENES = new ArrayList<>();
     private static boolean boomed;
     private static final float[] A = new float[3], B = new float[3], C = new float[3], D = new float[3];
 
     private Kill3D() { }
 
-    public static void start(boolean bus, double x, double y, double z, double yaw) {
+    public static boolean hides(net.minecraft.entity.Entity e) {
+        if (SCENES.isEmpty()) return false;
+        long now = System.currentTimeMillis();
+        for (Scene s : SCENES) if (s.bus && s.id != null && s.id.equals(e.getUuid()) && now - s.start < s.dur) return true;
+        return false;
+    }
+
+    public static void start(boolean bus, double x, double y, double z, double yaw, net.minecraft.entity.Entity victim) {
         while (SCENES.size() >= 2) SCENES.remove(0);
+        java.util.UUID id = victim != null ? victim.getUuid() : null;
+        net.minecraft.entity.player.SkinTextures skin = victim instanceof net.minecraft.client.network.AbstractClientPlayerEntity ap ? ap.getSkinTextures() : null;
         long dur = (long) ((bus ? Cfg.D.killBusDur : Cfg.D.killFpvDur) * 1000L);
-        SCENES.add(new Scene(bus, x, y, z, yaw, System.currentTimeMillis(), dur, System.nanoTime() & 0xFFFF));
+        SCENES.add(new Scene(bus, x, y, z, yaw, System.currentTimeMillis(), dur, System.nanoTime() & 0xFFFF, id, skin));
     }
 
     /** Поза камеры дрона {x,y,z,yawDeg,pitchDeg} или null, если камера дрона не активна. */
@@ -126,8 +135,10 @@ public final class Kill3D {
                 float minY = Math.min(Math.min(f.ys[0], f.ys[1]), Math.min(f.ys[2], f.ys[3]));
                 float maxY = Math.max(Math.max(f.ys[0], f.ys[1]), Math.max(f.ys[2], f.ys[3]));
                 int y0 = Math.max(0, (int) Math.floor(minY)), y1 = Math.min(sh - 1, (int) Math.ceil(maxY));
-                for (int y = y0; y <= y1; y++) {
-                    double yc = y + 0.5, lo = 1e9, hi = -1e9;
+                if (maxY - minY < 0.8f) continue;
+                int step = (y1 - y0) > 36 ? 2 : 1;
+                for (int y = y0; y <= y1; y += step) {
+                    double yc = y + 0.5 * step, lo = 1e9, hi = -1e9;
                     for (int e = 0; e < 4; e++) {
                         int n = (e + 1) & 3;
                         double ya = f.ys[e], yb = f.ys[n];
@@ -139,13 +150,8 @@ public final class Kill3D {
                     }
                     if (hi > lo) {
                         int xa = Math.max(0, (int) Math.floor(lo)), xb = Math.min(sw, (int) Math.ceil(hi));
-                        if (xb > xa) c.fill(xa, y, xb, y + 1, f.col);
+                        if (xb > xa) c.fill(xa, y, xb, y + step, f.col);
                     }
-                }
-                // тёмная кромка для читаемости
-                if (f.edge && Math.max(maxY - minY, 0) > 6) {
-                    int ec = 0x66000000;
-                    for (int e = 0; e < 4; e++) { int n = (e + 1) & 3; TargetEsp.seg(c, f.xs[e], f.ys[e], f.xs[n], f.ys[n], ec); }
                 }
             }
         }
@@ -153,8 +159,15 @@ public final class Kill3D {
 
     // ======================================================= фигуры
 
-    private static void figure(Mesh m, Frame f, int shirt, int pants, int skin, double swing, double armSwing) {
+    private static void figure(Mesh m, Frame f, int shirt, int pants, int skin, double swing, double armSwing) { figure(m, f, shirt, pants, skin, swing, armSwing, false); }
+
+    private static void figure(Mesh m, Frame f, int shirt, int pants, int skin, double swing, double armSwing, boolean army) {
         m.box(f, 0, 1.75, 0, .25, .25, .25, 0, 0, 0, 0, skin);
+        if (army) {
+            m.box(f, 0, 1.93, 0, .29, .14, .29, 0, 0, 0, 0, 0x3F4A2B);       // каска
+            m.box(f, 0, 1.2, .14, .27, .3, .03, 0, 0, 0, 0, 0x5C5237);       // разгрузка
+            m.box(f, 0, .06, 0, .27, .06, .16, 0, 0, 0, 0, 0x1A1A1A);        // берцы
+        }
         m.box(f, 0, 1.125, 0, .25, .375, .125, 0, 0, 0, 0, shirt);
         m.box(f, -.375, 1.125, 0, .125, .375, .125, armSwing, -.375, 1.5, 0, shirt);
         m.box(f, .375, 1.125, 0, .125, .375, .125, -armSwing, .375, 1.5, 0, shirt);
@@ -241,9 +254,11 @@ public final class Kill3D {
         boolean corpseVisible = u > 0.3 && u < 6.9;
         // стартовое положение у двери (локально выходят из двери)
         double[] exitW = bf.w(-1.5, 0, 2.3);
+        corpseFrame = null;
         if (corpseVisible) {
             Frame cf = new Frame(corpseX, gy + 0.13 + lift, corpseZ, bodyYaw, -Math.PI / 2);
             figure(m, cf, 0x1FB5B5, 0x3B3FA0, 0xA8744F, 0, 0);
+            corpseFrame = cf;
         }
         if (u > 2.2 && u < 6.9) {
             for (int who = 0; who < 2; who++) {
@@ -265,12 +280,22 @@ public final class Kill3D {
                 double faceYaw = u < 3.4 ? Math.atan2(dx - exitW[0], dz - exitW[2]) : travelYaw;
                 if (u > 3.4 && u < 4.2) faceYaw = who == 0 ? travelYaw + Math.PI : travelYaw;   // наклон к телу
                 Frame pf = new Frame(px, gy, pz, who == 0 && u > 3.4 && u < 4.2 ? travelYaw : faceYaw, 0);
-                int shirt = who == 0 ? 0xE8590C : 0x2F9E44;
-                figure(m, pf, shirt, 0x212529, 0xE0AC84, sw, arms);
+                int shirt = who == 0 ? 0x5B6B3A : 0x4E5D32;
+                figure(m, pf, shirt, 0x434F2A, 0xE0AC84, sw, arms, true);
             }
         }
         m.draw(c);
+        if (corpseFrame != null && s.skin != null) {
+            double[] hd = corpseFrame.w(0, 1.75, 0);
+            float[] o = new float[3];
+            if (Projector.project(hd[0], hd[1], hd[2], o)) {
+                int sz = Math.max(6, Math.min(48, (int) (TargetEsp.pxPerBlock(hd[0], hd[1], hd[2]) * 0.5f)));
+                net.minecraft.client.gui.PlayerSkinDrawer.draw(c, s.skin, (int) o[0] - sz / 2, (int) o[1] - sz / 2, sz);
+            }
+        }
     }
+
+    private static Frame corpseFrame;
 
     // ---------------- FPV-дрон
 
@@ -299,11 +324,14 @@ public final class Kill3D {
         if (t < flight) {
             if (Cfg.D.killCam) { osd(c, t, flight); return; }
             Mesh m = new Mesh();
-            double S = 2.4;
+            double dd = Math.sqrt((px - Projector.camX()) * (px - Projector.camX()) + (py - Projector.camY()) * (py - Projector.camY()) + (pz - Projector.camZ()) * (pz - Projector.camZ()));
+            double S = Math.max(2.4, Math.min(9.0, dd * 0.11));
             Frame f = new Frame(px, py, pz, yaw, pitch);
             m.box(f, 0, 0, 0, .09 * S, .02 * S, .13 * S, 0, 0, 0, 0, 0x1B1B1F);
             m.box(f, 0, .035 * S, -.01 * S, .05 * S, .02 * S, .08 * S, 0, 0, 0, 0, 0xE8590C);
             m.box(f, 0, .0, .14 * S, .025 * S, .022 * S, .025 * S, 0, 0, 0, 0, 0x3B82F6);
+            m.box(f, 0, -.055 * S, .02 * S, .035 * S, .035 * S, .11 * S, 0, 0, 0, 0, 0x5B6B3A);    // боеприпас
+            m.box(f, 0, -.055 * S, .14 * S, .02 * S, .02 * S, .025 * S, 0, 0, 0, 0, 0xD62828);   // боеголовка
             for (int i = 0; i < 4; i++) {
                 double sgx = (i & 1) == 0 ? -1 : 1, sgz = (i & 2) == 0 ? -1 : 1;
                 double ax = sgx * .16 * S, az = sgz * .16 * S;

@@ -140,6 +140,11 @@ public final class MainScreen extends UiScreen {
                 plates.add(plate("Hitmarker", "hitmarker", def("hitm", "Hitmarker", this::pHitm)));
                 plates.add(plate("Zoom", "zoomOn", def("zoom", "Zoom", this::pZoom)));
                 plates.add(plate("FreeLook", "flOn", null));
+                plates.add(plate("Fullbright", "fullbright", null));
+                plates.add(plate("Скорость (BPS)", "bpsHud", null));
+                plates.add(plate("Часы", "clockHud", null));
+                plates.add(plate("Дистанция до цели", "distHud", null));
+                plates.add(plate("Счётчик комбо", "comboHud", null));
                 plates.add(plate("Item Physics", "itemPhys", null));
                 plates.add(plate("Shulker Preview", "shulkerPrev", null));
                 plates.add(plate("Cooldowns", "cdOn", def("cd", "Cooldowns", this::pCd)));

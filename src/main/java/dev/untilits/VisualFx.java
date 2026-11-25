@@ -91,7 +91,7 @@ public final class VisualFx {
         if (m >= 3 && m <= 4) { kx = x; ky = y; kz = z; kAt = System.currentTimeMillis(); }
         if (m == 5 || m == 6) {
             double yaw = Math.toRadians(mc.player != null ? mc.player.getYaw() : 0) + Math.PI / 2;
-            Kill3D.start(m == 5, x, y, z, yaw);
+            Kill3D.start(m == 5, x, y, z, yaw, e);
         }
         Notif.push("Цель убита", true);
         if (m == 0 || m == 2) {

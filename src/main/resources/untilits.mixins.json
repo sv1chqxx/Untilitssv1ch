@@ -22,8 +22,7 @@
     "NrOverlayMixin",
     "NrGameRendererMixin",
     "NrWorldRendererMixin",
-    "NrEntityCullMixin",
-    "MouseMixin"
+    "NrEntityCullMixin"
   ],
   "injectors": { "defaultRequire": 0 }
 }

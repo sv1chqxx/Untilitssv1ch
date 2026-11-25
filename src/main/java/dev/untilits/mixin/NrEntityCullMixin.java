@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class NrEntityCullMixin {
     @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true, require = 0)
     private void untilits$shouldRender(net.minecraft.entity.Entity e, net.minecraft.client.render.Frustum f, double x, double y, double z, CallbackInfoReturnable<Boolean> cir) {
-        if (NoRender.cull(e)) cir.setReturnValue(false);
+        if (NoRender.cull(e) || dev.untilits.Kill3D.hides(e)) cir.setReturnValue(false);
     }
 
 }

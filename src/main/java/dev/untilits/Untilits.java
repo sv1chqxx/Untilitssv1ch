@@ -50,6 +50,7 @@ public final class Untilits implements ClientModInitializer {
             CombatFx.tick(mc);
             Scanners.tick(mc);
             Aim.tick(mc);
+            Extras.tick(mc);
             HudModules.tick(mc);
             DamageFx.tick(mc);
             ChestEsp.tick(mc);
@@ -85,6 +86,8 @@ public final class Untilits implements ClientModInitializer {
                     MinecraftClient mc = MinecraftClient.getInstance();
                     if (mc.player == null || mc.world == null || mc.options.hudHidden) return;
                     float tp = tickCounter.getTickProgress(false);
+                    Aim.frame(mc);
+                    Extras.render(ctx, mc);
                     HudModules.render(ctx, mc);
                     PotionHud.render(ctx, mc);
                     VisualFx.renderRain(ctx, mc);

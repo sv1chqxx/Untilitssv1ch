@@ -22,7 +22,9 @@ public final class SecretScreen extends UiScreen {
 
     public SecretScreen() { super("Скрытое меню"); }
 
-    private static final String[] TABS = {"ESP", "Tracers", "Мир", "Трап и ввод", "Друзья", "Ники и HUD", "Поиск", "Бой"};
+    private static final String[] TABS = {"ESP", "Бой", "Мир", "Игроки"};
+    private static final int[][] GROUPS = {{0, 1}, {7, 3}, {2, 6}, {4, 5}};
+    private int scroll, content;;
 
     @Override
     protected void init() {
@@ -30,7 +32,22 @@ public final class SecretScreen extends UiScreen {
         String keepSearch = searchBox == null ? null : searchBox.text;
         items.clear();
         Cfg.Data d = Cfg.D;
-        switch (tab) {
+        for (int cs : GROUPS[tab]) sect(cs, d, keepFriend, keepSearch);
+        layoutPanel(420, 320);
+        relayoutItems();
+    }
+
+    private void relayoutItems() {
+        int h = 0;
+        for (Item it : items) h += it.h + 2;
+        content = h;
+        int view = ph - 56 - 20;
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, h - view)));
+        place(py + 56 - scroll);
+    }
+
+    private void sect(int cs, Cfg.Data d, String keepFriend, String keepSearch) {
+        switch (cs) {
             case 0 -> {
                 items.add(new Section("ESP — контур сквозь стены"));
                 items.add(new Toggle("Игроки", () -> d.esp, v -> d.esp = v));
@@ -108,9 +125,9 @@ public final class SecretScreen extends UiScreen {
                 items.add(feat("hbMobs", "Hitbox: и мобы"));
             }
             case 7 -> {
-                items.add(new Section("AimAssist — помощь при наведении (двигаешь мышь сам)"));
+                items.add(new Section("AimAssist — помогает, пока ты двигаешь мышь"));
                 items.add(feat("aimOn", "AimAssist"));
-                items.add(new Slider("Дистанция", 20, 60, 5, " /10 бл.", () -> d.aimRange, v -> d.aimRange = v));
+                items.add(new Slider("Дистанция", 1, 6, 1, " бл.", () -> d.aimDist, v -> d.aimDist = v));
                 items.add(new Slider("FOV", 10, 180, 10, "°", () -> d.aimFov, v -> d.aimFov = v));
                 items.add(new Slider("Сила", 10, 100, 10, "%", () -> d.aimStrength, v -> d.aimStrength = v));
                 items.add(new Toggle("Игроки", () -> d.aimPlayers, v -> d.aimPlayers = v));
@@ -118,7 +135,8 @@ public final class SecretScreen extends UiScreen {
                 items.add(new Toggle("По вертикали", () -> d.aimVert, v -> d.aimVert = v));
                 items.add(new Section("TriggerBot — удар, когда прицел на цели"));
                 items.add(feat("trigOn", "TriggerBot"));
-                items.add(new Slider("Дистанция", 20, 60, 5, " /10 бл.", () -> d.trigRange, v -> d.trigRange = v));
+                items.add(new Slider("Дистанция", 1, 6, 1, " бл.", () -> d.trigDist, v -> d.trigDist = v));
+                items.add(new Toggle("Рандомная задержка ударов", () -> d.trigRand, v -> d.trigRand = v));
                 items.add(new Toggle("Только криты", () -> d.trigCrit, v -> d.trigCrit = v));
                 items.add(new Toggle("Игроки", () -> d.trigPlayers, v -> d.trigPlayers = v));
                 items.add(new Toggle("Мобы", () -> d.trigMobs, v -> d.trigMobs = v));
@@ -134,10 +152,6 @@ public final class SecretScreen extends UiScreen {
                 items.add(feat("kbHud", "Таблица биндов (ср. кнопка по функции в меню)"));
             }
         }
-        int hh = 56 + 14;
-        for (Item it : items) hh += it.h + 2;
-        layoutPanel(400, hh);
-        place(py + 56);
     }
 
     private void applySearch() {
@@ -175,6 +189,30 @@ public final class SecretScreen extends UiScreen {
     }
 
     @Override
+    public void render(DrawContext c, int mx, int my, float delta) {
+        c.fill(0, 0, width, height, 0x5A050810);
+        Gfx.glass(c, px, py, pw, ph, 12, true);
+        header(c, mx, my);
+        int top = py + 54, bot = py + ph - 8;
+        c.enableScissor(px, top, px + pw, bot);
+        for (Item it : items) if (it.y + it.h > top && it.y < bot) it.draw(c, mx, my);
+        c.disableScissor();
+        int view = bot - top;
+        if (content > view) {
+            int bh = Math.max(16, view * view / content);
+            int by = top + (int) ((view - bh) * (scroll / (float) (content - view)));
+            Gfx.round(c, px + pw - 7, by, 3, bh, 1, 0x66FFFFFF);
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double hx, double vy) {
+        scroll -= (int) (vy * 18);
+        relayoutItems();
+        return true;
+    }
+
+    @Override
     protected void header(DrawContext c, int mx, int my) {
         Gfx.round(c, px + 16, py + 12, 8, 8, 4, Cfg.D.accent);
         Gfx.shadow(c, "Скрытое меню", px + 30, py + 12, 0xFFFFFFFF);
@@ -194,11 +232,11 @@ public final class SecretScreen extends UiScreen {
             int x = px + 16;
             for (int i = 0; i < TABS.length; i++) {
                 int w = Gfx.tw(TABS[i]) + 10;
-                if (mx >= x && mx < x + w) { if (tab != i) { tab = i; init(); } return true; }
+                if (mx >= x && mx < x + w) { if (tab != i) { tab = i; scroll = 0; init(); } return true; }
                 x += w + 4;
             }
         }
-        if (super.mouseClicked(click, doubled)) return true;
+        if (my >= py + 54 && my < py + ph - 8 && super.mouseClicked(click, doubled)) return true;
         if (click.button() == 0 && Cfg.D.sysHud
                 && mx >= SysHud.bx && mx < SysHud.bx + SysHud.bw && my >= SysHud.by && my < SysHud.by + SysHud.bh) {
             dragHud = 1;

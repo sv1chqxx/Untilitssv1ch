@@ -39,6 +39,7 @@ public final class CombatFx {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world == null || mc.player == null || !(e instanceof LivingEntity)) return;
         Cfg.Data d = Cfg.D;
+        Extras.hit();
         if (d.hitmarker) hmAt = System.currentTimeMillis();
         if (d.hitmarker || d.hitSound > 0) sound(mc, d.hitSound);
         if (d.hitFx) {

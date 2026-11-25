@@ -52,6 +52,11 @@ public final class Features {
         reg("srchOn", "Block Search", () -> Cfg.D.srchOn, v -> Cfg.D.srchOn = v);
         reg("aimOn", "AimAssist", () -> Cfg.D.aimOn, v -> Cfg.D.aimOn = v);
         reg("trigOn", "TriggerBot", () -> Cfg.D.trigOn, v -> Cfg.D.trigOn = v);
+        reg("fullbright", "Fullbright", () -> Cfg.D.fullbright, v -> Cfg.D.fullbright = v);
+        reg("bpsHud", "Скорость (BPS)", () -> Cfg.D.bpsHud, v -> Cfg.D.bpsHud = v);
+        reg("clockHud", "Часы", () -> Cfg.D.clockHud, v -> Cfg.D.clockHud = v);
+        reg("distHud", "Дистанция до цели", () -> Cfg.D.distHud, v -> Cfg.D.distHud = v);
+        reg("comboHud", "Счётчик комбо", () -> Cfg.D.comboHud, v -> Cfg.D.comboHud = v);
         reg("scanOn", "Storage Scanner", () -> Cfg.D.scanOn, v -> Cfg.D.scanOn = v);
         reg("ambOn", "Ambience", () -> Cfg.D.ambOn, v -> Cfg.D.ambOn = v);
         reg("ambTimeLock", "Ambience: фикс. время", () -> Cfg.D.ambTimeLock, v -> Cfg.D.ambTimeLock = v);

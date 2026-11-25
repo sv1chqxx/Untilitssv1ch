@@ -94,10 +94,9 @@ public final class Aim {
         if (d.trigCrit && !(mc.player.fallDistance > 0 && !mc.player.isOnGround() && !mc.player.isClimbing() && !mc.player.isTouchingWater())) return;
         if (mc.player.getAttackCooldownProgress(0.5f) < (d.trigRand ? need : 0.92f)) return;
         if (d.trigRand) {
-            if (wait < 0) wait = R.nextInt(4);       // 0–3 тика случайной задержки
+            if (wait < 0) wait = R.nextInt(2);       // 0–1 тик случайной задержки
             if (wait-- > 0) return;
             need = 0.9f + R.nextFloat() * 0.1f;
-            if (R.nextInt(20) == 0) { wait = -1; return; }   // изредка пропускает окно
         }
         wait = -1;
         mc.interactionManager.attackEntity(mc.player, e);

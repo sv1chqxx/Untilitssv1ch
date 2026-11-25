@@ -17,9 +17,7 @@ import org.lwjgl.glfw.GLFW;
 public final class Untilits implements ClientModInitializer {
     private static final KeyBinding.Category CATEGORY = KeyBinding.Category.create(Identifier.of("untilits", "main"));
     private static KeyBinding menuKey;
-    private static KeyBinding freecamKey;
-    private static KeyBinding zoomKey;
-    private static KeyBinding lookKey;
+    private static boolean vDown;
     private static boolean pDown;
 
     @Override
@@ -30,12 +28,6 @@ public final class Untilits implements ClientModInitializer {
                 "key.untilits.menu", GLFW.GLFW_KEY_P,
                 CATEGORY));
 
-        freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.untilits.freecam", GLFW.GLFW_KEY_V,
-                CATEGORY));
-
-        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.untilits.zoom", GLFW.GLFW_KEY_C, CATEGORY));
-        lookKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.untilits.freelook", GLFW.GLFW_KEY_LEFT_ALT, CATEGORY));
 
         net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
             if (world.isClient()) CombatFx.onHit(entity);
@@ -45,8 +37,12 @@ public final class Untilits implements ClientModInitializer {
                 net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, ctx, mx, my, delta) -> ShulkerPreview.render(s, ctx, mx, my)));
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-            CombatFx.zoomHeld = zoomKey.isPressed();
-            CombatFx.lookHeld = lookKey.isPressed();
+            boolean noScr = mc.currentScreen == null && mc.getWindow() != null;
+            CombatFx.zoomHeld = noScr && InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_C);
+            CombatFx.lookHeld = noScr && InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_LEFT_ALT);
+            boolean vNow = noScr && InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_V);
+            if (vNow && !vDown && mc.world != null && !Unhook.active) Freecam.set(!Freecam.active);
+            vDown = vNow;
             CombatFx.tick(mc);
             Scanners.tick(mc);
             Aim.tick(mc);
@@ -63,7 +59,6 @@ public final class Untilits implements ClientModInitializer {
             VisualFx.tick(mc);
             if (mc.world == null) TrapTimer.clear();
             Freecam.tick(mc);
-            while (freecamKey.wasPressed()) { if (mc.world != null) Freecam.set(!Freecam.active); }
             boolean down = mc.getWindow() != null
                     && InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_P);
             boolean edge = down && !pDown;

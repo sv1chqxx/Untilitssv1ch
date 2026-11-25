@@ -11,12 +11,28 @@ import java.util.List;
 
 /** 3D-сцены убийства: автобус, из которого двое забирают тело, и FPV-дрон, влетающий в цель и взрывающийся. Рисуются полигонами по проекции. */
 public final class Kill3D {
-    private record Scene(boolean bus, double x, double y, double z, double yaw, long start, long dur, long seed, java.util.UUID id, net.minecraft.entity.player.SkinTextures skin) { }
+    private record Scene(boolean bus, double x, double y, double z, double yaw, long start, long dur, long seed, java.util.UUID id, net.minecraft.entity.player.SkinTextures skin, int shirt, int pants) { }
     private static final List<Scene> SCENES = new ArrayList<>();
     private static boolean boomed;
     private static final float[] A = new float[3], B = new float[3], C = new float[3], D = new float[3];
 
     private Kill3D() { }
+
+    private static int armorRgb(net.minecraft.item.ItemStack st, int fb) {
+        if (st == null || st.isEmpty()) return fb;
+        String id = net.minecraft.registry.Registries.ITEM.getId(st.getItem()).getPath();
+        if (id.contains("netherite")) return 0x4A3F46;
+        if (id.contains("diamond")) return 0x3DDCD0;
+        if (id.contains("iron")) return 0xD0D0D0;
+        if (id.contains("gold")) return 0xF2C73A;
+        if (id.contains("chainmail")) return 0x8C8C8C;
+        if (id.contains("copper")) return 0xC77B58;
+        if (id.contains("leather")) return 0xA06540;
+        return fb;
+    }
+
+    /** Аварийно убрать все сцены (например, когда игрок получил урон). */
+    public static void panic() { SCENES.clear(); }
 
     public static boolean hides(net.minecraft.entity.Entity e) {
         if (SCENES.isEmpty()) return false;
@@ -28,14 +44,22 @@ public final class Kill3D {
     public static void start(boolean bus, double x, double y, double z, double yaw, net.minecraft.entity.Entity victim) {
         while (SCENES.size() >= 2) SCENES.remove(0);
         java.util.UUID id = victim != null ? victim.getUuid() : null;
+        int hue = id == null ? 0 : (id.hashCode() & 0xFFFF);
+        int shirt = Gfx.hsv((hue % 360) / 360f, 0.55f, 0.75f) & 0xFFFFFF, pants = Gfx.hsv(((hue / 7) % 360) / 360f, 0.45f, 0.4f) & 0xFFFFFF;
+        if (victim instanceof net.minecraft.entity.LivingEntity le) {
+            shirt = armorRgb(le.getEquippedStack(net.minecraft.entity.EquipmentSlot.CHEST), shirt);
+            pants = armorRgb(le.getEquippedStack(net.minecraft.entity.EquipmentSlot.LEGS), pants);
+        }
         net.minecraft.entity.player.SkinTextures skin = victim instanceof net.minecraft.client.network.AbstractClientPlayerEntity ap ? ap.getSkin() : null;
         long dur = (long) ((bus ? Cfg.D.killBusDur : Cfg.D.killFpvDur) * 1000L);
-        SCENES.add(new Scene(bus, x, y, z, yaw, System.currentTimeMillis(), dur, System.nanoTime() & 0xFFFF, id, skin));
+        SCENES.add(new Scene(bus, x, y, z, yaw, System.currentTimeMillis(), dur, System.nanoTime() & 0xFFFF, id, skin, shirt, pants));
     }
 
     /** Поза камеры дрона {x,y,z,yawDeg,pitchDeg} или null, если камера дрона не активна. */
     public static double[] camPose() {
         if (!Cfg.D.killCam || !Cfg.D.killFx) return null;
+        var pl = MinecraftClient.getInstance().player;
+        if (pl != null && pl.hurtTime > 0) { SCENES.clear(); return null; }
         long now = System.currentTimeMillis();
         for (Scene s : SCENES) {
             if (s.bus || now - s.start > s.dur) continue;
@@ -130,15 +154,19 @@ public final class Kill3D {
 
         void draw(DrawContext c) {
             faces.sort((a, b) -> Float.compare(b.depth, a.depth));
-            int sh = c.getScaledWindowHeight(), sw = c.getScaledWindowWidth();
+            int s = Math.max(1, (int) MinecraftClient.getInstance().getWindow().getScaleFactor());
+            int sh = c.getScaledWindowHeight() * s, sw = c.getScaledWindowWidth() * s;
+            var mx = c.getMatrices();
+            mx.pushMatrix();
+            mx.scale(1f / s, 1f / s);
             for (Face f : faces) {
-                float minY = Math.min(Math.min(f.ys[0], f.ys[1]), Math.min(f.ys[2], f.ys[3]));
-                float maxY = Math.max(Math.max(f.ys[0], f.ys[1]), Math.max(f.ys[2], f.ys[3]));
-                int y0 = Math.max(0, (int) Math.floor(minY)), y1 = Math.min(sh - 1, (int) Math.ceil(maxY));
+                float minY = Math.min(Math.min(f.ys[0], f.ys[1]), Math.min(f.ys[2], f.ys[3])) * s;
+                float maxY = Math.max(Math.max(f.ys[0], f.ys[1]), Math.max(f.ys[2], f.ys[3])) * s;
                 if (maxY - minY < 0.8f) continue;
-                int step = (y1 - y0) > 36 ? 2 : 1;
+                int y0 = Math.max(0, (int) Math.floor(minY)), y1 = Math.min(sh - 1, (int) Math.ceil(maxY));
+                int step = Math.max(1, Math.min(3, (y1 - y0) / 70));
                 for (int y = y0; y <= y1; y += step) {
-                    double yc = y + 0.5 * step, lo = 1e9, hi = -1e9;
+                    double yc = (y + 0.5 * step) / s, lo = 1e9, hi = -1e9;
                     for (int e = 0; e < 4; e++) {
                         int n = (e + 1) & 3;
                         double ya = f.ys[e], yb = f.ys[n];
@@ -149,11 +177,12 @@ public final class Kill3D {
                         }
                     }
                     if (hi > lo) {
-                        int xa = Math.max(0, (int) Math.floor(lo)), xb = Math.min(sw, (int) Math.ceil(hi));
+                        int xa = Math.max(0, (int) Math.floor(lo * s)), xb = Math.min(sw, (int) Math.ceil(hi * s));
                         if (xb > xa) c.fill(xa, y, xb, y + step, f.col);
                     }
                 }
             }
+            mx.popMatrix();
         }
     }
 
@@ -194,108 +223,99 @@ public final class Kill3D {
     // ---------------- автобус
 
     private static void bus(DrawContext c, MinecraftClient mc, Scene s, double t) {
-        double k = (s.dur / 1000.0) / 9.0;
-        double u = t / k;               // нормированное время 0..9
+        double kk = (s.dur / 1000.0) / 9.0;
+        double u = t / kk;
         double yaw = s.yaw;
-        double fx = Math.sin(yaw), fz = Math.cos(yaw);          // вперёд у автобуса
-        double sx = Math.cos(yaw), sz = -Math.sin(yaw);         // вправо у автобуса
-        double cx = s.x + sx * 4.0, cz = s.z + sz * 4.0, gy = s.y;   // стоянка автобуса (жертва слева от него)
-        // положение автобуса
+        double fx = Math.sin(yaw), fz = Math.cos(yaw);
+        double sx = Math.cos(yaw), sz = -Math.sin(yaw);
+        double cx = s.x + sx * 4.0, cz = s.z + sz * 4.0, gy = s.y;
         double dist;
-        if (u < 2.0) dist = -30 * Math.pow(1 - ease(u / 2.0 * 0.0 + Math.pow(u / 2.0, 0.6)), 1.0) ;
+        if (u < 2.0) dist = -30 * Math.pow(1 - u / 2.0, 3);
         else if (u < 7.5) dist = 0;
         else dist = 42 * Math.pow(seg(u, 7.5, 9.0), 2);
-        if (u < 2.0) { double q = u / 2.0; dist = -30 * (1 - (1 - Math.pow(1 - q, 3))); dist = -30 * Math.pow(1 - q, 3); }
         double bx = cx + fx * dist, bz = cz + fz * dist;
         boolean moving = u < 2.0 || u > 7.5;
-        double bounce = moving ? Math.sin(t * 22) * 0.02 : 0;
-        Frame bf = new Frame(bx, gy + bounce, bz, yaw, 0);
+        Frame bf = new Frame(bx, gy + (moving ? Math.sin(t * 22) * 0.02 : 0), bz, yaw, 0);
         Mesh m = new Mesh();
-        // кузов
-        m.box(bf, 0, 1.45, 0, 1.2, 1.05, 3.5, 0, 0, 0, 0, 0xF2B705);
-        m.box(bf, 0, 2.6, 0, 1.2, .08, 3.5, 0, 0, 0, 0, 0xF4F4F4);
-        m.box(bf, 0, .95, 0, 1.22, .06, 3.52, 0, 0, 0, 0, 0x1A1A1A);          // полоса
-        m.box(bf, 0, .38, 0, 1.2, .1, 3.55, 0, 0, 0, 0, 0x2A2A2A);            // днище/бампер
+        m.box(bf, 0, 1.45, 0, 1.2, 1.05, 3.5, 0, 0, 0, 0, 0x4A4F54);      // кузов серый
+        m.box(bf, 0, 2.6, 0, 1.2, .08, 3.5, 0, 0, 0, 0, 0x26292C);         // крыша чёрная
+        m.box(bf, 0, .95, 0, 1.22, .07, 3.52, 0, 0, 0, 0, 0x121416);       // чёрная полоса
+        m.box(bf, 0, .38, 0, 1.2, .1, 3.55, 0, 0, 0, 0, 0x1C1E20);         // бампер
         for (int side = -1; side <= 1; side += 2) {
             double wx = side * 1.215;
-            for (int i = 0; i < 4; i++) m.box(bf, wx, 1.75, -2.55 + i * 1.05, .02, .38, .42, 0, 0, 0, 0, 0x9FD8FF);
-            m.box(bf, wx, 1.75, 3.0 - 0.0, .02, .38, .3, 0, 0, 0, 0, 0x9FD8FF);
-            for (int zz = -1; zz <= 1; zz += 2) {
-                m.box(bf, side * 1.2, .45, zz * 2.2, .16, .45, .45, 0, 0, 0, 0, 0x151515);
-                m.box(bf, side * 1.34, .45, zz * 2.2, .02, .2, .2, 0, 0, 0, 0, 0xB0B0B0);
-            }
+            for (int i = 0; i < 3; i++) m.box(bf, wx, 1.75, -2.2 + i * 1.3, .02, .38, .5, 0, 0, 0, 0, 0x2E3A44);
+            for (int zz = -1; zz <= 1; zz += 2) m.box(bf, side * 1.2, .45, zz * 2.2, .16, .45, .45, 0, 0, 0, 0, 0x0E0E0F);
         }
-        m.box(bf, 0, 1.75, 3.52, 1.0, .42, .02, 0, 0, 0, 0, 0x8EC9F5);       // лобовое
-        m.box(bf, 0, 1.75, -3.52, 1.0, .42, .02, 0, 0, 0, 0, 0x8EC9F5);
-        m.box(bf, -.8, .8, 3.53, .2, .12, .02, 0, 0, 0, 0, 0xFFF6C2);          // фары
-        m.box(bf, .8, .8, 3.53, .2, .12, .02, 0, 0, 0, 0, 0xFFF6C2);
-        m.box(bf, 0, 2.72, 0, .5, .12, .6, 0, 0, 0, 0, 0xE63946);              // мигалка
-        // дверь (слева, ближе к жертве)
+        m.box(bf, 0, 1.75, 3.52, 1.0, .42, .02, 0, 0, 0, 0, 0x2E3A44);
+        m.box(bf, -.8, .8, 3.53, .2, .12, .02, 0, 0, 0, 0, 0xFFF1B8);
+        m.box(bf, .8, .8, 3.53, .2, .12, .02, 0, 0, 0, 0, 0xFFF1B8);
         double door = ease(seg(u, 2.0, 2.6)) - ease(seg(u, 7.0, 7.5));
-        m.box(bf, -1.22, 1.3, 2.3 + door * 1.0, .02, .95, .45, 0, 0, 0, 0, 0x2B2B2B);
-        // точки двери и тела
-        double[] doorW = bf.w(-1.6, 0, 2.3);
+        m.box(bf, -1.22, 1.3, 2.3 + door * 1.0, .02, .95, .45, 0, 0, 0, 0, 0x1A1C1E);
+
+        double[] doorW = bf.w(-1.7, 0, 2.3), exitW = bf.w(-1.3, 0, 2.3), inW = bf.w(-0.3, 0, 2.3);
         double vx = s.x, vz = s.z;
-        double tx = doorW[0] - vx, tz = doorW[2] - vz;
-        double tl = Math.max(0.01, Math.sqrt(tx * tx + tz * tz));
-        tx /= tl; tz /= tl;
-        double travelYaw = Math.atan2(tx, tz);
-        double bodyYaw = Math.atan2(-tx, -tz);   // голова по ходу движения
-        // грузчики и тело
-        double aRun = seg(u, 2.2, 3.4), aGrab = seg(u, 3.4, 4.2), aCarry = seg(u, 4.2, 6.4), aEnter = seg(u, 6.4, 6.9);
-        double headX = vx + tx * 1.35, headZ = vz + tz * 1.35, feetX = vx - tx * 1.35, feetZ = vz - tz * 1.35;
-        double corpseX, corpseZ, lift;
-        if (u < 4.2) { corpseX = vx; corpseZ = vz; lift = 0; }
-        else {
-            double q = ease(aCarry);
-            corpseX = lerp(vx, doorW[0], q); corpseZ = lerp(vz, doorW[2], q);
-            lift = 0.95 * ease(seg(u, 4.2, 4.7));
-        }
-        boolean corpseVisible = u > 0.3 && u < 6.9;
-        // стартовое положение у двери (локально выходят из двери)
-        double[] exitW = bf.w(-1.5, 0, 2.3);
+        double dx = doorW[0] - vx, dz = doorW[2] - vz;
+        double dl = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
+        double ux = dx / dl, uz = dz / dl;
+        double travelYaw = Math.atan2(ux, uz);
+        double perpX = -uz, perpZ = ux;
+        double carry = ease(seg(u, 4.2, 6.4)), enter = ease(seg(u, 6.4, 7.0));
+        double cpx = lerp(vx, doorW[0], carry), cpz = lerp(vz, doorW[2], carry);
+        cpx = lerp(cpx, inW[0], enter); cpz = lerp(cpz, inW[2], enter);
+        boolean carrying = u > 4.2 && u < 7.0;
         corpseFrame = null;
-        if (corpseVisible) {
-            Frame cf = new Frame(corpseX, gy + 0.13 + lift, corpseZ, bodyYaw, -Math.PI / 2);
-            figure(m, cf, 0x1FB5B5, 0x3B3FA0, 0xA8744F, 0, 0);
+        if (u < 7.0) {
+            double lift = carrying ? 0.12 : 0;
+            Frame cf = new Frame(cpx, gy + lift, cpz, travelYaw, 0);
+            double leg = carrying ? Math.sin(t * 12) * 0.35 : 0;
+            figure(m, cf, s.shirt, s.pants, 0xC68E63, leg, 0, false);
             corpseFrame = cf;
         }
-        if (u > 2.2 && u < 6.9) {
+        if (u > 2.2 && u < 7.0) {
+            double run = ease(seg(u, 2.2, 3.6));
             for (int who = 0; who < 2; who++) {
-                double dx = who == 0 ? headX : feetX, dz = who == 0 ? headZ : feetZ;
-                double px, pz;
-                double shift = who * 0.25;
-                double r = seg(u, 2.2 + shift, 3.4 + shift);
-                if (u < 4.2) { px = lerp(exitW[0], dx, ease(r)); pz = lerp(exitW[2], dz, ease(r)); }
-                else {
-                    double q = ease(aCarry);
-                    double ox = lerp(dx - vx, who == 0 ? tx * 0.0 + (doorW[0] - vx) * 0 : 0, 0);
-                    px = dx + (corpseX - vx); pz = dz + (corpseZ - vz);
-                }
-                // уход в автобус в конце
-                if (u > 6.4) { double q = ease(aEnter); px = lerp(px, doorW[0], q); pz = lerp(pz, doorW[2], q); }
-                boolean running = u < 3.4 || (u > 4.2 && u < 6.9);
-                double sw = running ? Math.sin(t * 13 + who * Math.PI) * 0.8 : 0;
-                double arms = u > 3.4 ? -1.35 + (u > 4.2 ? 0 : 0.3 * (1 - aGrab)) : sw;
-                double faceYaw = u < 3.4 ? Math.atan2(dx - exitW[0], dz - exitW[2]) : travelYaw;
-                if (u > 3.4 && u < 4.2) faceYaw = who == 0 ? travelYaw + Math.PI : travelYaw;   // наклон к телу
-                Frame pf = new Frame(px, gy, pz, who == 0 && u > 3.4 && u < 4.2 ? travelYaw : faceYaw, 0);
-                int shirt = who == 0 ? 0x5B6B3A : 0x4E5D32;
-                figure(m, pf, shirt, 0x434F2A, 0xE0AC84, sw, arms, true);
+                double off = who == 0 ? 0.62 : -0.62;
+                double tx = cpx + perpX * off, tz = cpz + perpZ * off;
+                double px = lerp(exitW[0], tx, run), pz = lerp(exitW[2], tz, run);
+                boolean walk = u < 3.6 || carrying;
+                double swing = walk ? Math.sin(t * 12 + who * Math.PI) * 0.7 : 0;
+                double face = u < 3.6 ? Math.atan2(tx - exitW[0], tz - exitW[2]) : travelYaw;
+                double arms = u > 3.4 ? -1.2 : swing;
+                figure(m, new Frame(px, gy, pz, face, 0), who == 0 ? 0x5B6B3A : 0x4E5D32, 0x434F2A, 0xE0AC84, swing, arms, true);
             }
         }
         m.draw(c);
+
+        // надпись ТЦК на борту, видимом камере
+        for (int side = -1; side <= 1; side += 2) {
+            double[] ctr = bf.w(side * 1.24, 1.45, -0.6), o0 = bf.w(0, 0, 0), o1 = bf.w(side, 0, 0);
+            double nx = o1[0] - o0[0], nz = o1[2] - o0[2];
+            if (nx * (Projector.camX() - ctr[0]) + nz * (Projector.camZ() - ctr[2]) <= 0) continue;
+            float[] o = new float[3];
+            if (!Projector.project(ctr[0], ctr[1], ctr[2], o)) continue;
+            float ppb = TargetEsp.pxPerBlock(ctr[0], ctr[1], ctr[2]);
+            if (ppb < 6) continue;
+            var mx = c.getMatrices();
+            mx.pushMatrix();
+            mx.translate(o[0], o[1]);
+            float sc = ppb / 9f;
+            mx.scale(sc, sc);
+            c.fill(-16, -6, 16, 6, 0xCC0A0B0C);
+            Gfx.text(c, "ТЦК", -Gfx.tw("ТЦК") / 2, -4, 0xFFFFD84A);
+            mx.popMatrix();
+        }
         if (corpseFrame != null && s.skin != null) {
             double[] hd = corpseFrame.w(0, 1.75, 0);
             float[] o = new float[3];
             if (Projector.project(hd[0], hd[1], hd[2], o)) {
-                int fs = Math.max(6, Math.min(48, (int) (TargetEsp.pxPerBlock(hd[0], hd[1], hd[2]) * 0.5f)));
+                int fs = Math.max(6, Math.min(64, (int) (TargetEsp.pxPerBlock(hd[0], hd[1], hd[2]) * 0.5f)));
                 net.minecraft.client.gui.PlayerSkinDrawer.draw(c, s.skin, (int) o[0] - fs / 2, (int) o[1] - fs / 2, fs);
             }
         }
     }
 
     private static Frame corpseFrame;
+    private static long lastBuzz;
 
     // ---------------- FPV-дрон
 
@@ -321,6 +341,10 @@ public final class Kill3D {
         double yaw = Math.atan2(dx, dz);
         double pitch = -Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * 0.6 + 0.35;
         double roll = Math.sin(t * 5) * 0.1;
+        if (t < flight && System.currentTimeMillis() - lastBuzz > 300) {
+            lastBuzz = System.currentTimeMillis();
+            if (mc.world != null) mc.world.playSoundClient(px, py, pz, SoundEvents.ENTITY_BEE_LOOP, SoundCategory.NEUTRAL, 0.9f, 1.7f, false);
+        }
         if (t < flight) {
             if (Cfg.D.killCam) { osd(c, t, flight); return; }
             Mesh m = new Mesh();

@@ -50,29 +50,29 @@ public final class SecretScreen extends UiScreen {
         switch (cs) {
             case 0 -> {
                 items.add(new Section("ESP — контур сквозь стены"));
-                items.add(new Toggle("Игроки", () -> d.esp, v -> d.esp = v));
-                items.add(new Toggle("Мобы (враждебные красные, мирные зелёные)", () -> d.espMobs, v -> d.espMobs = v));
-                items.add(new Toggle("Предметы", () -> d.espItems, v -> d.espItems = v));
-                items.add(new Toggle("Ванильный контур-glow (тяжёлый, режет FPS)", () -> d.espGlow, v -> d.espGlow = v));
+                items.add(feat("esp", "Игроки"));
+                items.add(feat("espMobs", "Мобы (враждебные красные, мирные зелёные)"));
+                items.add(feat("espItems", "Предметы"));
+                items.add(feat("espGlow", "Ванильный контур-glow (тяжёлый, режет FPS)"));
                 items.add(new Slider("Дальность ESP", 16, 512, 16, " бл.", () -> d.espRange, v -> d.espRange = v));
                 items.add(new Section("Слабые места — игроки с низким HP светятся оранжевым"));
-                items.add(new Toggle("Подсветка слабых мест", () -> d.weak, v -> d.weak = v));
+                items.add(feat("weak", "Подсветка слабых мест"));
                 items.add(new Slider("Порог HP (≤)", 1, 20, 1, " HP", () -> d.weakHp, v -> d.weakHp = v));
             }
             case 1 -> {
                 items.add(new Section("Tracers — линии из прицела к целям"));
-                items.add(new Toggle("Tracers (игроки)", () -> d.tracers, v -> d.tracers = v));
-                items.add(new Toggle("К мобам", () -> d.tracersMobs, v -> d.tracersMobs = v));
-                items.add(new Toggle("К предметам", () -> d.tracersItems, v -> d.tracersItems = v));
+                items.add(feat("tracers", "Tracers (игроки)"));
+                items.add(feat("tracersMobs", "К мобам"));
+                items.add(feat("tracersItems", "К предметам"));
                 items.add(new Slider("Дальность Tracers", 16, 512, 16, " бл.", () -> d.tracerRange, v -> d.tracerRange = v));
             }
             case 2 -> {
                 items.add(new Section("Chest ESP — сундуки, бочки, шалкеры, эндер-сундуки"));
-                items.add(new Toggle("Chest ESP", () -> d.chestEsp, v -> d.chestEsp = v));
-                items.add(new Toggle("Показывать спавнеры", () -> d.chestSpawners, v -> d.chestSpawners = v));
+                items.add(feat("chestEsp", "Chest ESP"));
+                items.add(feat("chestSpawners", "Показывать спавнеры"));
                 items.add(new Slider("Дальность", 8, 128, 8, " бл.", () -> d.chestRange, v -> d.chestRange = v));
                 items.add(new Section("FreeCam — свободная камера (клавиша V)"));
-                items.add(new Toggle("FreeCam", () -> Freecam.active, v -> Freecam.set(v)));
+                items.add(feat("freecam", "FreeCam"));
                 items.add(new Slider("Скорость камеры", 1, 30, 1, "", () -> d.freecamSpeed, v -> d.freecamSpeed = v));
             }
             case 3 -> {
@@ -142,8 +142,10 @@ public final class SecretScreen extends UiScreen {
                 items.add(new Toggle("Мобы", () -> d.trigMobs, v -> d.trigMobs = v));
             }
             default -> {
+                items.add(new Section("Unhook — СКМ по пункту и клавиша: выкл. читы и прячет кнопку меню"));
+                items.add(feat("unhook", "Unhook"));
                 items.add(new Section("NameTags — ники издалека, даже у крадущихся"));
-                items.add(new Toggle("NameTags", () -> d.names, v -> d.names = v));
+                items.add(feat("names", "NameTags"));
                 items.add(new Slider("Дальность ников", 16, 512, 16, " бл.", () -> d.nameRange, v -> d.nameRange = v));
                 items.add(new Toggle("Показывать HP", () -> d.nameHp, v -> d.nameHp = v));
                 items.add(new Toggle("Показывать броню и предмет", () -> d.nameItems, v -> d.nameItems = v));
@@ -197,6 +199,8 @@ public final class SecretScreen extends UiScreen {
         c.enableScissor(px, top, px + pw, bot);
         for (Item it : items) if (it.y + it.h > top && it.y < bot) it.draw(c, mx, my);
         c.disableScissor();
+        if (bindingId != null) Gfx.text(c, "Нажми клавишу…  (Esc — отмена, Backspace — снять)", px + 16, py + ph - 12, Gfx.withAlpha(Cfg.D.accent, 255));
+        else Gfx.text(c, "СКМ по функции, затем клавиша — привязка", px + 16, py + ph - 12, 0x55FFFFFF);
         int view = bot - top;
         if (content > view) {
             int bh = Math.max(16, view * view / content);

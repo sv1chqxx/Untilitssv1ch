@@ -74,7 +74,7 @@ public final class TargetEsp {
 
     static float pxPerBlock(double x, double y, double z) {
         if (!Projector.project(x, y, z, R1) || !Projector.project(x, y + 1, z, R2)) return 0;
-        return Math.abs(R2[1] - R1[1]);
+        return Math.min(70f, Math.abs(R2[1] - R1[1]));
     }
 
     private static float rnd(int i, int k) {

@@ -56,24 +56,27 @@ public final class VisualFx {
             }
         }
 
-        // Kill Effects: цель умерла
+        // Kill Effects: срабатывает только если цель убита после МОЕГО удара
         if (d.killFx) {
-            LivingEntity t = TargetEsp.target;
-            if (t != null && t != watched) { watched = t; fired = false; }
-            if (watched != null && !fired && (watched.isDead() || watched.getHealth() <= 0f)
-                    && System.currentTimeMillis() - TargetEsp.seenAt() < 6000) {
+            LivingEntity t = lastHit;
+            if (t != null && !fired && System.currentTimeMillis() - lastHitAt < 5000
+                    && (t.isDead() || t.getHealth() <= 0f) && t.getWorld() == mc.world) {
                 fired = true;
-                boom(mc, watched);
+                boom(mc, t);
             }
-            if (Cfg.D.killMode >= 5 && mc.world != null) {
-                for (var pl : mc.world.getPlayers()) {
-                    if (pl == mc.player || pl == watched) continue;
-                    if ((pl.isDead() || pl.getHealth() <= 0f) && pl.squaredDistanceTo(mc.player) < 40 * 40 && DEAD.add(pl.getUuid())) {
-                        boom(mc, pl);
-                    }
-                }
-                if (DEAD.size() > 200) DEAD.clear();
-            }
+            if (t != null && System.currentTimeMillis() - lastHitAt >= 5000) lastHit = null;
+        }
+    }
+
+    private static LivingEntity lastHit;
+    private static long lastHitAt;
+
+    /** Запоминает цель моего последнего удара (вызывается из CombatFx.onHit). */
+    public static void noteHit(net.minecraft.entity.Entity e) {
+        if (e instanceof LivingEntity le) {
+            if (le != lastHit) fired = false;
+            lastHit = le;
+            lastHitAt = System.currentTimeMillis();
         }
     }
 

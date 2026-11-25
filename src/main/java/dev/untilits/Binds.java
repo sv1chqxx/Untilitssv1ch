@@ -26,7 +26,8 @@ public final class Binds {
             boolean down = InputUtil.isKeyPressed(mc.getWindow(), key);
             boolean was = prev.getOrDefault(key, false);
             prev.put(key, down);
-            if (down && !was && canFire) {
+            if (Unhook.active && !e.getKey().equals("unhook")) continue;
+            if (down && !was && (canFire || e.getKey().equals("unhook") && mc.currentScreen == null)) {
                 Features.F f = Features.ALL.get(e.getKey());
                 if (f != null) { boolean nv = !f.get().getAsBoolean(); f.set().accept(nv); Notif.push(f.label() + (nv ? ": ВКЛ" : ": ВЫКЛ"), nv); }
             }

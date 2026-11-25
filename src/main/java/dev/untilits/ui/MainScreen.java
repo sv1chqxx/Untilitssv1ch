@@ -3,6 +3,7 @@ package dev.untilits.ui;
 import dev.untilits.Binds;
 import dev.untilits.CombatFx;
 import dev.untilits.Cfg;
+import dev.untilits.Unhook;
 import dev.untilits.Features;
 import dev.untilits.Gfx;
 import dev.untilits.Notif;
@@ -578,7 +579,7 @@ public final class MainScreen extends UiScreen {
         Gfx.text(c, hint, px + 16, py + ph - 14, bindingId != null ? Gfx.withAlpha(acc, 255) : 0x55FFFFFF);
         int cx = px + pw - 11, cy = py + ph - 11;
         boolean near = Math.abs(mx - cx) <= 6 && Math.abs(my - cy) <= 6;
-        Gfx.disc(c, cx, cy, 3, near ? 0x30FFFFFF : 0x12FFFFFF);
+        if (!Unhook.active) Gfx.disc(c, cx, cy, 3, near ? 0x1CFFFFFF : 0x07FFFFFF);
     }
 
     private void drawPanel(DrawContext c, int mx, int my) {
@@ -648,7 +649,7 @@ public final class MainScreen extends UiScreen {
                 }
             }
             int cx = px + pw - 11, cy = py + ph - 11;
-            if (Math.abs(mx - cx) <= 6 && Math.abs(my - cy) <= 6) { client.setScreen(new PasswordScreen()); return true; }
+            if (!Unhook.active && Math.abs(mx - cx) <= 6 && Math.abs(my - cy) <= 6) { client.setScreen(new PasswordScreen()); return true; }
         }
         if (my >= vy0() && my < vy1()) {
             for (Plate p : plates) {

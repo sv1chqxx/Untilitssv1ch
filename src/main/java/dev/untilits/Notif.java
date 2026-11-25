@@ -15,7 +15,7 @@ public final class Notif {
     private Notif() { }
 
     public static void push(String text, boolean on) {
-        if (!Cfg.D.notif) return;
+        if (!Cfg.D.notif || Unhook.active) return;
         LIST.add(new N(text, on, System.currentTimeMillis()));
         if (LIST.size() > 5) LIST.remove(0);
     }

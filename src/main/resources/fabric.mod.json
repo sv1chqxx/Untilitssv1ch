@@ -3,7 +3,7 @@
   "id": "untilits",
   "version": "${version}",
   "name": "Untilits",
-  "description": "Liquid Glass меню на P: HUD, кровь, цифры урона. Скрытое меню: PlayerESP, NameTags, System HUD.",
+  "description": "Мульти-мод: объединяет множество других модов и GUI в одном меню.",
   "authors": ["Sam"],
   "license": "All-Rights-Reserved",
   "environment": "client",

@@ -57,6 +57,7 @@ public final class Features {
         reg("clockHud", "Часы", () -> Cfg.D.clockHud, v -> Cfg.D.clockHud = v);
         reg("distHud", "Дистанция до цели", () -> Cfg.D.distHud, v -> Cfg.D.distHud = v);
         reg("comboHud", "Счётчик комбо", () -> Cfg.D.comboHud, v -> Cfg.D.comboHud = v);
+        reg("unhook", "Unhook", () -> Unhook.active, Unhook::set);
         reg("scanOn", "Storage Scanner", () -> Cfg.D.scanOn, v -> Cfg.D.scanOn = v);
         reg("ambOn", "Ambience", () -> Cfg.D.ambOn, v -> Cfg.D.ambOn = v);
         reg("ambTimeLock", "Ambience: фикс. время", () -> Cfg.D.ambTimeLock, v -> Cfg.D.ambTimeLock = v);

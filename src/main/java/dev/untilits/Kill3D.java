@@ -327,21 +327,26 @@ public final class Kill3D {
             double dd = Math.sqrt((px - Projector.camX()) * (px - Projector.camX()) + (py - Projector.camY()) * (py - Projector.camY()) + (pz - Projector.camZ()) * (pz - Projector.camZ()));
             double S = Math.max(2.4, Math.min(9.0, dd * 0.11));
             Frame f = new Frame(px, py, pz, yaw, pitch);
-            m.box(f, 0, 0, 0, .09 * S, .02 * S, .13 * S, 0, 0, 0, 0, 0x1B1B1F);
-            m.box(f, 0, .035 * S, -.01 * S, .05 * S, .02 * S, .08 * S, 0, 0, 0, 0, 0xE8590C);
-            m.box(f, 0, .0, .14 * S, .025 * S, .022 * S, .025 * S, 0, 0, 0, 0, 0x3B82F6);
-            m.box(f, 0, -.055 * S, .02 * S, .035 * S, .035 * S, .11 * S, 0, 0, 0, 0, 0x5B6B3A);    // боеприпас
-            m.box(f, 0, -.055 * S, .14 * S, .02 * S, .02 * S, .025 * S, 0, 0, 0, 0, 0xD62828);   // боеголовка
+            Frame fx = new Frame(px, py, pz, yaw + Math.PI / 4, pitch);
+            m.box(fx, 0, 0, 0, .23 * S, .007 * S, .011 * S, 0, 0, 0, 0, 0x1C1C20);          // рама X
+            m.box(fx, 0, 0, 0, .011 * S, .007 * S, .23 * S, 0, 0, 0, 0, 0x1C1C20);
+            m.box(f, 0, .012 * S, 0, .06 * S, .014 * S, .1 * S, 0, 0, 0, 0, 0x26262B);       // платы
+            m.box(f, 0, .055 * S, .0, .05 * S, .032 * S, .1 * S, 0, 0, 0, 0, 0x2D6FF0);      // батарея
+            m.box(f, 0, .056 * S, .0, .053 * S, .034 * S, .013 * S, 0, 0, 0, 0, 0x555B61);   // ремешок
+            m.box(f, -.06 * S, .09 * S, -.1 * S, .004 * S, .05 * S, .004 * S, 0, 0, 0, 0, 0x2A2A2A);   // антенна
+            m.box(f, -.06 * S, .145 * S, -.1 * S, .011 * S, .011 * S, .011 * S, 0, 0, 0, 0, 0x3A3A3A);
+            m.box(f, 0, -.065 * S, .02 * S, .042 * S, .042 * S, .105 * S, 0, 0, 0, 0, 0xA8691F);     // боеприпас
+            m.box(f, 0, -.065 * S, .14 * S, .032 * S, .032 * S, .035 * S, 0, 0, 0, 0, 0xA8691F);
+            m.box(f, 0, -.065 * S, .185 * S, .024 * S, .024 * S, .018 * S, 0, 0, 0, 0, 0xC9CED3);   // металлический наконечник
+            m.box(f, 0, -.065 * S, -.115 * S, .022 * S, .022 * S, .025 * S, 0, 0, 0, 0, 0x8A5518);
             for (int i = 0; i < 4; i++) {
                 double sgx = (i & 1) == 0 ? -1 : 1, sgz = (i & 2) == 0 ? -1 : 1;
                 double ax = sgx * .16 * S, az = sgz * .16 * S;
-                Frame af = new Frame(px, py, pz, yaw, pitch);
-                m.box(af, ax / 2, 0, az / 2, Math.abs(ax) / 2 + .01 * S, .008 * S, Math.abs(az) / 2 + .01 * S, 0, 0, 0, 0, 0x2A2A30);
+                m.box(f, ax, .012 * S, az, .022 * S, .02 * S, .022 * S, 0, 0, 0, 0, 0x151518);   // мотор
                 Frame pr = new Frame(0, 0, 0, yaw + t * 90 * (i % 2 == 0 ? 1 : -1), pitch);
-                double[] tip = f.w(ax, .02 * S, az);
+                double[] tip = f.w(ax, .038 * S, az);
                 pr.ox = tip[0]; pr.oy = tip[1]; pr.oz = tip[2];
-                m.box(pr, 0, 0, 0, .12 * S, .004 * S, .012 * S, 0, 0, 0, 0, 0xCFCFD6);
-                m.box(pr, 0, .004 * S, 0, .012 * S, .01 * S, .012 * S, 0, 0, 0, 0, (i < 2) ? 0xFF3B30 : 0x30D158);
+                m.box(pr, 0, 0, 0, .13 * S, .003 * S, .011 * S, 0, 0, 0, 0, 0x202024);          // винт
             }
             m.draw(c);
             // хвост-след и свет светодиода

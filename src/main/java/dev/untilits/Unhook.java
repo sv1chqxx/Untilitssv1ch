@@ -8,7 +8,7 @@ public final class Unhook {
     public static boolean active;
     private static final String[] IDS = {"esp", "espMobs", "espItems", "espGlow", "weak", "tracers", "tracersMobs", "tracersItems",
             "chestEsp", "chestSpawners", "freecam", "names", "sysHud", "kbHud", "trapTimer", "zeroTcp", "zeroJump", "zeroAttack",
-            "zeroRaycast", "zeroSnap", "hbOn", "hbMobs", "srchOn", "scanOn", "aimOn", "trigOn", "fullbright"};
+            "zeroRaycast", "zeroSnap", "hbOn", "hbMobs", "srchOn", "scanOn", "aimOn", "kaOn", "trigOn", "fullbright"};
     private static final Map<String, Boolean> SAVED = new LinkedHashMap<>();
 
     private Unhook() { }

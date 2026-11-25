@@ -51,6 +51,7 @@ public final class Features {
         reg("hbMobs", "Hitbox: мобы", () -> Cfg.D.hbMobs, v -> Cfg.D.hbMobs = v);
         reg("srchOn", "Block Search", () -> Cfg.D.srchOn, v -> Cfg.D.srchOn = v);
         reg("aimOn", "AimAssist", () -> Cfg.D.aimOn, v -> Cfg.D.aimOn = v);
+        reg("kaOn", "KillAura", () -> Cfg.D.kaOn, v -> Cfg.D.kaOn = v);
         reg("trigOn", "TriggerBot", () -> Cfg.D.trigOn, v -> Cfg.D.trigOn = v);
         reg("fullbright", "Fullbright", () -> Cfg.D.fullbright, v -> Cfg.D.fullbright = v);
         reg("bpsHud", "Скорость (BPS)", () -> Cfg.D.bpsHud, v -> Cfg.D.bpsHud = v);

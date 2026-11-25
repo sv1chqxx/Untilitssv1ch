@@ -16,6 +16,9 @@ import java.util.Random;
 
 /** AimAssist (помогает при движении мыши) и TriggerBot (удар при наведении, с рандомной задержкой). */
 public final class Aim {
+    public static final String[] KA_MODES = {"Легит", "Полу-рейдж", "Рейдж", "Своё"};
+    public static final String[] KA_PRIO = {"Дистанция", "Здоровье", "Угол"};
+    private static LivingEntity kaTarget;
     private static LivingEntity target;
     private static float lastYaw, lastPitch;
     private static boolean haveLast;
@@ -43,7 +46,52 @@ public final class Aim {
                         .min(Comparator.comparingDouble(e -> fovTo(mc, e.getBoundingBox().getCenter()))).orElse(null);
             }
         } else target = null;
+        if (d.kaOn) killaura(mc); else kaTarget = null;
         if (d.trigOn) trigger(mc); else wait = -1;
+    }
+
+    /** Пресеты режимов KillAura: после выбора режима настройки можно менять вручную («Своё» ничего не трогает). */
+    public static void applyKaPreset() {
+        Cfg.Data d = Cfg.D;
+        switch (d.kaMode) {
+            case 0 -> { d.kaRange = 3; d.kaFov = 90; d.kaWalls = false; d.kaMulti = false; d.kaRotate = true; }
+            case 1 -> { d.kaRange = 4; d.kaFov = 180; d.kaWalls = false; d.kaMulti = false; d.kaRotate = true; }
+            case 2 -> { d.kaRange = 6; d.kaFov = 360; d.kaWalls = true; d.kaMulti = true; d.kaRotate = false; }
+            default -> { }
+        }
+    }
+
+    private static boolean kaValid(MinecraftClient mc, LivingEntity e) {
+        Cfg.Data d = Cfg.D;
+        if (e == mc.player || e.isDead() || !e.isAlive() || e instanceof ArmorStandEntity) return false;
+        if (e instanceof PlayerEntity p) return d.kaPlayers && !p.isSpectator() && !d.friends.contains(p.getName().getString());
+        if (e instanceof net.minecraft.entity.mob.Monster) return d.kaHostile;
+        if (e instanceof net.minecraft.entity.passive.AnimalEntity) return d.kaAnimals;
+        return false;
+    }
+
+    private static void killaura(MinecraftClient mc) {
+        Cfg.Data d = Cfg.D;
+        double rsq = (double) d.kaRange * d.kaRange;
+        java.util.List<LivingEntity> list = new java.util.ArrayList<>();
+        for (LivingEntity e : mc.world.getEntitiesByClass(LivingEntity.class, mc.player.getBoundingBox().expand(d.kaRange), x -> kaValid(mc, x))) {
+            if (mc.player.squaredDistanceTo(e) > rsq) continue;
+            if (!d.kaWalls && !mc.player.canSee(e)) continue;
+            if (d.kaFov < 360 && fovTo(mc, e.getBoundingBox().getCenter()) > d.kaFov / 2.0) continue;
+            list.add(e);
+        }
+        list.sort(Comparator.comparingDouble(e -> switch (d.kaPrio) {
+            case 1 -> e.getHealth();
+            case 2 -> fovTo(mc, e.getBoundingBox().getCenter());
+            default -> mc.player.squaredDistanceTo(e);
+        }));
+        kaTarget = list.isEmpty() ? null : list.get(0);
+        if (kaTarget == null) return;
+        float need = d.kaMode == 2 ? 0.9f : 0.95f;
+        if (mc.player.getAttackCooldownProgress(0.5f) < need) return;
+        int n = d.kaMulti ? Math.min(list.size(), 4) : 1;
+        for (int i = 0; i < n; i++) mc.interactionManager.attackEntity(mc.player, list.get(i));
+        mc.player.swingHand(Hand.MAIN_HAND);
     }
 
     private static double fovTo(MinecraftClient mc, Vec3d p) {
@@ -60,8 +108,15 @@ public final class Aim {
     /** Каждый кадр: то, на сколько игрок повернул мышь, усиливается в сторону цели. Сам аим цель не наводит. */
     public static void frame(MinecraftClient mc) {
         if (mc.player == null) { haveLast = false; return; }
-        float yaw = mc.player.getYaw(), pitch = mc.player.getPitch();
         Cfg.Data d = Cfg.D;
+        if (d.kaOn && d.kaRotate && kaTarget != null && mc.currentScreen == null && !Freecam.active) {
+            float[] ka = angles(mc.player.getEyePos(), kaTarget.getBoundingBox().getCenter());
+            float yd = MathHelper.wrapDegrees(ka[0] - mc.player.getYaw()), pd = ka[1] - mc.player.getPitch();
+            float lim = d.kaMode == 1 ? 18f : 9f;
+            mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yd * 0.3f, -lim, lim));
+            mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pd * 0.3f, -lim, lim), -90f, 90f));
+        }
+        float yaw = mc.player.getYaw(), pitch = mc.player.getPitch();
         if (d.aimOn && target != null && haveLast && mc.currentScreen == null && !Freecam.active) {
             float dy = MathHelper.wrapDegrees(yaw - lastYaw), dp = pitch - lastPitch;
             if (Math.abs(dy) > 0.02f || Math.abs(dp) > 0.02f) {

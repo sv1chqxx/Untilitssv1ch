@@ -1,5 +1,6 @@
 package dev.untilits.ui;
 
+import dev.untilits.Aim;
 import dev.untilits.Cfg;
 import dev.untilits.Freecam;
 import dev.untilits.Gfx;
@@ -125,6 +126,18 @@ public final class SecretScreen extends UiScreen {
                 items.add(feat("hbMobs", "Hitbox: и мобы"));
             }
             case 7 -> {
+                items.add(new Section("KillAura — авто-удары по целям в радиусе"));
+                items.add(feat("kaOn", "KillAura"));
+                items.add(new Cycle("Режим", () -> Aim.KA_MODES[d.kaMode], () -> { d.kaMode = (d.kaMode + 1) % Aim.KA_MODES.length; Aim.applyKaPreset(); init(); }));
+                items.add(new Slider("Дистанция", 2, 6, 1, " бл.", () -> d.kaRange, v -> d.kaRange = v));
+                items.add(new Slider("FOV", 30, 360, 30, "°", () -> d.kaFov, v -> d.kaFov = v));
+                items.add(new Toggle("Бить через стены и сущности", () -> d.kaWalls, v -> d.kaWalls = v));
+                items.add(new Toggle("Несколько целей за раз", () -> d.kaMulti, v -> d.kaMulti = v));
+                items.add(new Toggle("Плавный поворот камеры", () -> d.kaRotate, v -> d.kaRotate = v));
+                items.add(new Cycle("Приоритет", () -> Aim.KA_PRIO[d.kaPrio], () -> d.kaPrio = (d.kaPrio + 1) % Aim.KA_PRIO.length));
+                items.add(new Toggle("Игроки", () -> d.kaPlayers, v -> d.kaPlayers = v));
+                items.add(new Toggle("Враждебные мобы", () -> d.kaHostile, v -> d.kaHostile = v));
+                items.add(new Toggle("Животные", () -> d.kaAnimals, v -> d.kaAnimals = v));
                 items.add(new Section("AimAssist — помогает, пока ты двигаешь мышь"));
                 items.add(feat("aimOn", "AimAssist"));
                 items.add(new Slider("Дистанция", 1, 6, 1, " бл.", () -> d.aimDist, v -> d.aimDist = v));

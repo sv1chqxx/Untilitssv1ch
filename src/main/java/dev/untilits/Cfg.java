@@ -128,6 +128,8 @@ public final class Cfg {
         public boolean killCam;
         public boolean aimOn, aimPlayers = true, aimMobs, aimVert = true, trigOn, trigCrit, trigPlayers = true, trigMobs;
         public int aimDist = 3, aimFov = 60, aimStrength = 50, trigDist = 3;
+        public boolean kaOn, kaPlayers = true, kaHostile = true, kaAnimals, kaWalls, kaMulti, kaRotate = true;
+        public int kaMode, kaRange = 3, kaFov = 90, kaPrio;
         public boolean trigRand = true, trigTps = true, fullbright, bpsHud, clockHud, distHud, comboHud;
 
         public String pass = "";
@@ -177,6 +179,10 @@ public final class Cfg {
         D.killMode = clamp(D.killMode, 0, 6);
         D.killBusDur = clamp(D.killBusDur, 6, 14);
         D.killFpvDur = clamp(D.killFpvDur, 3, 8);
+        D.kaMode = clamp(D.kaMode, 0, 3);
+        D.kaRange = clamp(D.kaRange, 2, 6);
+        D.kaFov = clamp(D.kaFov, 30, 360);
+        D.kaPrio = clamp(D.kaPrio, 0, 2);
         D.aimDist = clamp(D.aimDist, 1, 6);
         D.aimFov = clamp(D.aimFov, 10, 180);
         D.aimStrength = clamp(D.aimStrength, 10, 100);

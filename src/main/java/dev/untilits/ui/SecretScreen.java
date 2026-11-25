@@ -137,6 +137,7 @@ public final class SecretScreen extends UiScreen {
                 items.add(feat("trigOn", "TriggerBot"));
                 items.add(new Slider("Дистанция", 1, 6, 1, " бл.", () -> d.trigDist, v -> d.trigDist = v));
                 items.add(new Toggle("Рандомная задержка ударов", () -> d.trigRand, v -> d.trigRand = v));
+                items.add(new Toggle("Подстройка под TPS сервера", () -> d.trigTps, v -> d.trigTps = v));
                 items.add(new Toggle("Только криты", () -> d.trigCrit, v -> d.trigCrit = v));
                 items.add(new Toggle("Игроки", () -> d.trigPlayers, v -> d.trigPlayers = v));
                 items.add(new Toggle("Мобы", () -> d.trigMobs, v -> d.trigMobs = v));

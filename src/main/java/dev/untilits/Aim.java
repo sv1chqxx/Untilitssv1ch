@@ -20,6 +20,7 @@ public final class Aim {
     private static float lastYaw, lastPitch;
     private static boolean haveLast;
     private static int wait = -1;
+    private static long lastAttack;
     private static float need = 0.95f;
     private static final Random R = new Random();
 
@@ -93,12 +94,18 @@ public final class Aim {
         if (mc.player.squaredDistanceTo(e) > (double) d.trigDist * d.trigDist) { wait = -1; return; }
         if (d.trigCrit && !(mc.player.fallDistance > 0 && !mc.player.isOnGround() && !mc.player.isClimbing() && !mc.player.isTouchingWater())) return;
         if (mc.player.getAttackCooldownProgress(0.5f) < (d.trigRand ? need : 0.92f)) return;
+        if (d.trigTps) {
+            float tps = Math.max(5f, Math.min(20f, Tps.get()));
+            double periodMs = mc.player.getAttackCooldownProgressPerTick() * 50.0 * (20.0 / tps);
+            if (System.currentTimeMillis() - lastAttack < periodMs * 0.95) return;
+        }
         if (d.trigRand) {
             if (wait < 0) wait = R.nextInt(2);       // 0–1 тик случайной задержки
             if (wait-- > 0) return;
             need = 0.9f + R.nextFloat() * 0.1f;
         }
         wait = -1;
+        lastAttack = System.currentTimeMillis();
         mc.interactionManager.attackEntity(mc.player, e);
         mc.player.swingHand(Hand.MAIN_HAND);
     }

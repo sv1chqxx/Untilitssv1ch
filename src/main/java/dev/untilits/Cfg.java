@@ -128,7 +128,7 @@ public final class Cfg {
         public boolean killCam;
         public boolean aimOn, aimPlayers = true, aimMobs, aimVert = true, trigOn, trigCrit, trigPlayers = true, trigMobs;
         public int aimDist = 3, aimFov = 60, aimStrength = 50, trigDist = 3;
-        public boolean trigRand = true, fullbright, bpsHud, clockHud, distHud, comboHud;
+        public boolean trigRand = true, trigTps = true, fullbright, bpsHud, clockHud, distHud, comboHud;
 
         public String pass = "";
     }
